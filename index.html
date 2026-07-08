@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 /* =========================================================
    Tokens
@@ -43,7 +45,34 @@
   --h-cozinha: 48;
   --h-viagem: 330;
   --h-design: 99;
+  --h-mapa: 75;
+  --h-consulta: 300;
 }
+
+/* Leaflet map container sizing (used by the Mapa e Trânsito tools) */
+.map-box{
+  width: 100%;
+  height: 320px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin-top: 12px;
+  background: var(--bg-input);
+}
+.map-box .leaflet-container{ background: var(--bg-input); font-family: var(--font-body); }
+.info-card{
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-left: 3px solid hsl(var(--hue) 70% 55%);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  font-size: 0.86rem;
+  color: var(--text-soft);
+}
+.info-card strong{ color: var(--text); }
+.info-card ul{ margin: 8px 0 0; padding-left: 18px; }
+.info-card li{ margin-bottom: 4px; }
+.info-card a{ color: hsl(var(--hue) 85% 68%); text-decoration: underline; }
 
 *, *::before, *::after{ box-sizing: border-box; }
 html{ scroll-behavior: smooth; }
@@ -438,6 +467,38 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
 }
 
 /* color swatches for contrast tool */
+.color-picker-big{
+  width: 100%;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.color-picker-big input[type="color"]{
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+}
+.color-picker-big input[type="color"]::-webkit-color-swatch-wrapper{ padding: 0; }
+.color-picker-big input[type="color"]::-webkit-color-swatch{ border: none; }
+.color-picker-big input[type="color"]::-moz-color-swatch{ border: none; }
+.hex-mini{
+  margin-top: 6px;
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.hex-mini:focus{ color: var(--text); }
 .swatch-preview{
   border-radius: var(--radius-sm);
   padding: 20px;
@@ -539,7 +600,7 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
       <span class="logo-text">Central de<br>Cálculos</span>
     </div>
     <nav class="cat-nav" id="cat-nav" aria-label="Categorias"></nav>
-    <p class="sidebar-note">30 ferramentas · roda 100% no seu navegador</p>
+    <p class="sidebar-note">49 ferramentas · roda 100% no seu navegador</p>
   </aside>
 
   <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Abrir menu de categorias" aria-expanded="false">
@@ -557,7 +618,7 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
     </header>
 
     <section class="hero">
-      <p class="hero-eyebrow">11 categorias · 30 ferramentas</p>
+      <p class="hero-eyebrow">13 categorias · 49 ferramentas</p>
       <h1>Toda conta que você precisa,<br>num só painel.</h1>
       <p class="hero-lede">Saúde, dinheiro, casa, viagem, cozinha e tecnologia — escolha uma ferramenta abaixo e veja o resultado aparecer em tempo real no visor.</p>
     </section>
@@ -691,7 +752,8 @@ var UNIT_GROUPS = {
   comprimento: { base: "m", units: { mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344 } },
   peso: { base: "kg", units: { mg: 0.000001, g: 0.001, kg: 1, ton: 1000, lb: 0.45359237, oz: 0.0283495231 } },
   velocidade: { base: "m/s", units: { "m/s": 1, "km/h": 1 / 3.6, "mph": 0.44704, "nó": 0.514444 } },
-  volume: { base: "L", units: { ml: 0.001, L: 1, "m³": 1000, "gal (US)": 3.785411784, "xícara (US)": 0.2365882365, "colher de sopa": 0.0147868, "colher de chá": 0.00492892 } }
+  volume: { base: "L", units: { ml: 0.001, L: 1, "m³": 1000, "gal (US)": 3.785411784, "xícara (US)": 0.2365882365, "colher de sopa": 0.0147868, "colher de chá": 0.00492892 } },
+  area: { base: "m²", units: { "m²": 1, "km²": 1000000, "cm²": 0.0001, hectare: 10000, acre: 4046.8564224, "ft²": 0.09290304, alqueire: 24200 } }
 };
 function convertUnit(group, from, to, value) {
   var g = UNIT_GROUPS[group];
@@ -853,7 +915,9 @@ var CATEGORIES = [
   { id: "negocios", hue: "var(--h-negocios)", name: "Finanças Avançadas e Negócios", desc: "Markup, antecipação, ponto de equilíbrio e valuation." },
   { id: "cozinha", hue: "var(--h-cozinha)", name: "Cozinha e Gastronomia", desc: "Conversão de medidas e calculadora de churrasco." },
   { id: "viagem", hue: "var(--h-viagem)", name: "Viagens e Logística", desc: "Fuso horário e custo estimado de viagem." },
-  { id: "design", hue: "var(--h-design)", name: "Design e Áudio", desc: "Contraste de cores e conversão de arquivos." }
+  { id: "design", hue: "var(--h-design)", name: "Design e Áudio", desc: "Contraste de cores e conversão de arquivos." },
+  { id: "mapa", hue: "var(--h-mapa)", name: "Mapa e Trânsito", desc: "Tempo de deslocamento, rotas de corrida e transporte." },
+  { id: "consulta", hue: "var(--h-consulta)", name: "Consulta Rápida", desc: "Previsão do tempo, rastreamento e outras consultas do dia a dia." }
 ];
 
 /* =========================================================
@@ -932,6 +996,190 @@ TOOLS.push({
         { label: "Estimativa 21,1 km (meia)", value: fmtDur(paceSec * 21.0975) },
         { label: "Estimativa 42,2 km (maratona)", value: fmtDur(paceSec * 42.195) }
       ]);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "tmb", cat: "saude", icon: "🔥", title: "TMB / Gasto Calórico Diário",
+  subtitle: "Taxa metabólica basal e calorias por nível de atividade",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="tmb-sexo"><button class="active" data-v="f">Mulher</button><button data-v="m">Homem</button></div>' +
+      '<div class="field-row cols-3" style="margin-top:12px">' +
+      '<div class="field"><label>Peso (kg)</label><input type="number" id="tmb-peso" placeholder="65"></div>' +
+      '<div class="field"><label>Altura (cm)</label><input type="number" id="tmb-altura" placeholder="165"></div>' +
+      '<div class="field"><label>Idade (anos)</label><input type="number" id="tmb-idade" placeholder="30"></div>' +
+      '</div><div class="field"><label>Nível de atividade física</label><select id="tmb-atividade">' +
+      '<option value="1.2">Sedentário (pouco ou nenhum exercício)</option>' +
+      '<option value="1.375">Leve (exercício leve 1-3 dias/semana)</option>' +
+      '<option value="1.55" selected>Moderado (exercício 3-5 dias/semana)</option>' +
+      '<option value="1.725">Intenso (exercício 6-7 dias/semana)</option>' +
+      '<option value="1.9">Muito intenso (atleta / trabalho físico)</option>' +
+      '</select></div><div id="tmb-out"></div>';
+    var sexo = "f";
+    $all("#tmb-sexo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#tmb-sexo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); sexo = b.dataset.v; calc();
+      });
+    });
+    function calc() {
+      var p = toNum($("#tmb-peso", root).value), a = toNum($("#tmb-altura", root).value), idade = toNum($("#tmb-idade", root).value);
+      var fator = toNum($("#tmb-atividade", root).value, 1.2);
+      var out = $("#tmb-out", root);
+      if (!p || !a || !idade) { out.innerHTML = readoutHTML(); return; }
+      var tmb = sexo === "f" ? (10 * p + 6.25 * a - 5 * idade - 161) : (10 * p + 6.25 * a - 5 * idade + 5);
+      out.innerHTML = readoutHTML([
+        { label: "Gasto calórico diário total", value: fmtNum(tmb * fator, 0) + " kcal", big: true },
+        { label: "TMB (repouso)", value: fmtNum(tmb, 0) + " kcal", muted: true }
+      ], "Fórmula de Mifflin-St Jeor. Estimativa — necessidades reais variam por composição corporal e saúde individual.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "gordura-corporal", cat: "saude", icon: "📏", title: "Percentual de Gordura Corporal",
+  subtitle: "Estimativa pelo método da Marinha dos EUA (medidas de fita métrica)",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="gc-sexo"><button class="active" data-v="f">Mulher</button><button data-v="m">Homem</button></div>' +
+      '<div class="field-row cols-3" style="margin-top:12px">' +
+      '<div class="field"><label>Altura (cm)</label><input type="number" id="gc-altura" placeholder="165"></div>' +
+      '<div class="field"><label>Pescoço (cm)</label><input type="number" id="gc-pescoco" placeholder="34"></div>' +
+      '<div class="field"><label>Cintura (cm)</label><input type="number" id="gc-cintura" placeholder="75"></div>' +
+      '</div><div class="field" id="gc-quadril-field"><label>Quadril (cm) — apenas mulheres</label><input type="number" id="gc-quadril" placeholder="98"></div><div id="gc-out"></div>';
+    var sexo = "f";
+    function toggleQuadril() { $("#gc-quadril-field", root).style.display = sexo === "f" ? "" : "none"; }
+    $all("#gc-sexo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#gc-sexo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); sexo = b.dataset.v; toggleQuadril(); calc();
+      });
+    });
+    function calc() {
+      var altura = toNum($("#gc-altura", root).value), pescoco = toNum($("#gc-pescoco", root).value), cintura = toNum($("#gc-cintura", root).value), quadril = toNum($("#gc-quadril", root).value, 0);
+      var out = $("#gc-out", root);
+      if (!altura || !pescoco || !cintura || (sexo === "f" && !quadril)) { out.innerHTML = readoutHTML(); return; }
+      var pct;
+      if (sexo === "m") {
+        pct = 495 / (1.0324 - 0.19077 * Math.log10(cintura - pescoco) + 0.15456 * Math.log10(altura)) - 450;
+      } else {
+        pct = 495 / (1.29579 - 0.35004 * Math.log10(cintura + quadril - pescoco) + 0.22100 * Math.log10(altura)) - 450;
+      }
+      out.innerHTML = readoutHTML([{ label: "Gordura corporal estimada", value: fmtNum(pct, 1) + "%", big: true }], "Método da Marinha dos EUA — boa estimativa sem equipamentos, mas menos precisa que bioimpedância ou DEXA.");
+    }
+    root.addEventListener("input", calc);
+    toggleQuadril();
+  }
+});
+
+TOOLS.push({
+  id: "peso-ideal", cat: "saude", icon: "🎯", title: "Peso Ideal por Altura e Idade",
+  subtitle: "Faixa de peso saudável (IMC 18,5–24,9) e fórmula de Devine",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="pi-sexo"><button class="active" data-v="f">Mulher</button><button data-v="m">Homem</button></div>' +
+      '<div class="field-row cols-2" style="margin-top:12px">' +
+      '<div class="field"><label>Altura (cm)</label><input type="number" id="pi-altura" placeholder="170"></div>' +
+      '<div class="field"><label>Idade (anos)</label><input type="number" id="pi-idade" placeholder="30"></div>' +
+      '</div><div id="pi-out"></div>';
+    var sexo = "f";
+    $all("#pi-sexo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#pi-sexo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); sexo = b.dataset.v; calc();
+      });
+    });
+    function calc() {
+      var altura = toNum($("#pi-altura", root).value);
+      var out = $("#pi-out", root);
+      if (!altura) { out.innerHTML = readoutHTML(); return; }
+      var h = altura / 100;
+      var min = 18.5 * h * h, max = 24.9 * h * h;
+      var polegadasAcima152 = Math.max(0, (altura - 152.4) / 2.54);
+      var devine = sexo === "m" ? 50 + 2.3 * polegadasAcima152 : 45.5 + 2.3 * polegadasAcima152;
+      out.innerHTML = readoutHTML([
+        { label: "Faixa saudável (IMC)", value: fmtNum(min, 1) + " – " + fmtNum(max, 1) + " kg", big: true },
+        { label: "Peso ideal (fórmula de Devine)", value: fmtNum(devine, 1) + " kg" }
+      ], "A idade não altera diretamente essas fórmulas clássicas — ela influencia composição corporal, mas não a faixa de peso saudável.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "data-parto", cat: "saude", icon: "🤰", title: "Data Provável do Parto",
+  subtitle: "Calculadora gestacional pela regra de Naegele",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field"><label>Data da última menstruação (DUM)</label><input type="date" id="dp-dum"></div><div id="dp-out"></div>';
+    function calc() {
+      var v = $("#dp-dum", root).value;
+      var out = $("#dp-out", root);
+      if (!v) { out.innerHTML = readoutHTML(); return; }
+      var dum = new Date(v + "T00:00:00");
+      var dpp = new Date(dum.getTime() + 280 * 86400000);
+      var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      var semanas = Math.floor((hoje - dum) / (7 * 86400000));
+      var dias = Math.floor((hoje - dum) / 86400000) % 7;
+      out.innerHTML = readoutHTML([
+        { label: "Data provável do parto", value: dpp.toLocaleDateString("pt-BR"), big: true },
+        { label: "Idade gestacional hoje", value: (semanas >= 0 ? semanas + " semanas e " + dias + " dias" : "—"), muted: true }
+      ], "Regra de Naegele (DUM + 280 dias) — uma estimativa; o acompanhamento pré-natal com ultrassom é mais preciso.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "periodo-fertil", cat: "saude", icon: "🌸", title: "Período Fértil e Ovulação",
+  subtitle: "Estimativa com base no ciclo menstrual",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Data do 1º dia da última menstruação</label><input type="date" id="pf-dum"></div>' +
+      '<div class="field"><label>Duração média do ciclo (dias)</label><input type="number" id="pf-ciclo" value="28"></div>' +
+      '</div><div id="pf-out"></div>';
+    function calc() {
+      var v = $("#pf-dum", root).value, ciclo = toNum($("#pf-ciclo", root).value, 28);
+      var out = $("#pf-out", root);
+      if (!v) { out.innerHTML = readoutHTML(); return; }
+      var dum = new Date(v + "T00:00:00");
+      var ovulacao = new Date(dum.getTime() + (ciclo - 14) * 86400000);
+      var fertilInicio = new Date(ovulacao.getTime() - 5 * 86400000);
+      var fertilFim = new Date(ovulacao.getTime() + 1 * 86400000);
+      var proximaMenstruacao = new Date(dum.getTime() + ciclo * 86400000);
+      out.innerHTML = readoutHTML([
+        { label: "Janela fértil estimada", value: fertilInicio.toLocaleDateString("pt-BR") + " a " + fertilFim.toLocaleDateString("pt-BR"), big: true },
+        { label: "Ovulação estimada", value: ovulacao.toLocaleDateString("pt-BR") },
+        { label: "Próxima menstruação estimada", value: proximaMenstruacao.toLocaleDateString("pt-BR"), muted: true }
+      ], "Estimativa para ciclos regulares — não deve ser usada como método contraceptivo isolado.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "ingestao-agua", cat: "saude", icon: "💧", title: "Ingestão de Água por Dia",
+  subtitle: "Recomendação em mililitros com base no seu peso",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Peso (kg)</label><input type="number" id="ag-peso" placeholder="70"></div>' +
+      '<div class="field"><label>Nível de atividade</label><select id="ag-nivel"><option value="35">Normal</option><option value="40">Ativo (exercícios regulares)</option><option value="45">Muito ativo / calor intenso</option></select></div>' +
+      '</div><div id="ag-out"></div>';
+    function calc() {
+      var p = toNum($("#ag-peso", root).value), ml = toNum($("#ag-nivel", root).value, 35);
+      var out = $("#ag-out", root);
+      if (!p) { out.innerHTML = readoutHTML(); return; }
+      var total = p * ml;
+      out.innerHTML = readoutHTML([
+        { label: "Ingestão recomendada", value: fmtNum(total / 1000, 1) + " L/dia", big: true },
+        { label: "Em copos de 250 ml", value: Math.round(total / 250), muted: true }
+      ], "Estimativa geral (~35 ml/kg) — necessidades reais variam com clima, saúde e orientação médica.");
     }
     root.addEventListener("input", calc);
   }
@@ -1102,6 +1350,208 @@ TOOLS.push({
   }
 });
 
+/* ---- INSS 2026 — tabela progressiva com dedução ---- */
+var INSS_TABLE_2026 = [
+  { max: 1621.00, rate: 0.075, deduction: 0 },
+  { max: 2902.84, rate: 0.09, deduction: 24.32 },
+  { max: 4354.27, rate: 0.12, deduction: 111.41 },
+  { max: 8475.55, rate: 0.14, deduction: 198.49 }
+];
+var INSS_TETO_2026 = 8475.55;
+function calcINSS(salario) {
+  var base = Math.min(salario, INSS_TETO_2026);
+  var faixa = INSS_TABLE_2026.find(function (f) { return base <= f.max; }) || INSS_TABLE_2026[INSS_TABLE_2026.length - 1];
+  return Math.max(0, base * faixa.rate - faixa.deduction);
+}
+
+TOOLS.push({
+  id: "correcao-inflacao", cat: "financas", icon: "📊", title: "Correção Monetária pela Inflação",
+  subtitle: "Atualiza um valor pelo IPCA ou IGP-M entre dois meses",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="ci-indice"><button class="active" data-v="433">IPCA</button><button data-v="189">IGP-M</button></div>' +
+      '<div class="field-row cols-3" style="margin-top:12px">' +
+      '<div class="field"><label>Valor original (R$)</label><input type="number" id="ci-valor" placeholder="1000"></div>' +
+      '<div class="field"><label>Mês inicial</label><input type="month" id="ci-mes-ini"></div>' +
+      '<div class="field"><label>Mês final</label><input type="month" id="ci-mes-fim"></div>' +
+      '</div><div class="btn-row"><button class="btn primary" id="ci-calcular">Calcular correção</button></div><div id="ci-out"></div>';
+    var indice = "433";
+    $all("#ci-indice button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#ci-indice button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); indice = b.dataset.v;
+      });
+    });
+    $("#ci-calcular", root).addEventListener("click", function () {
+      var valor = toNum($("#ci-valor", root).value);
+      var mIni = $("#ci-mes-ini", root).value, mFim = $("#ci-mes-fim", root).value;
+      var out = $("#ci-out", root);
+      if (!valor || !mIni || !mFim) { out.innerHTML = readoutHTML([], "Preencha valor e os dois meses.", true); return; }
+      var iniParts = mIni.split("-"), fimParts = mFim.split("-");
+      var dataInicial = "01/" + iniParts[1] + "/" + iniParts[0];
+      var dataFinal = "28/" + fimParts[1] + "/" + fimParts[0];
+      out.innerHTML = '<div class="readout empty">Buscando série histórica no Banco Central…</div>';
+      fetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs." + indice + "/dados?formato=json&dataInicial=" + dataInicial + "&dataFinal=" + dataFinal)
+        .then(function (r) { return r.json(); })
+        .then(function (dados) {
+          if (!dados || !dados.length) throw new Error("sem dados no período");
+          var fator = 1;
+          dados.forEach(function (d) { fator *= (1 + toNum(d.valor) / 100); });
+          var corrigido = valor * fator;
+          out.innerHTML = readoutHTML([
+            { label: "Valor corrigido", value: fmtBRL(corrigido), big: true },
+            { label: "Variação acumulada no período", value: fmtNum((fator - 1) * 100, 2) + "%" },
+            { label: "Meses considerados", value: dados.length, muted: true }
+          ], "Fonte: séries temporais do Banco Central (SGS). Índice: " + (indice === "433" ? "IPCA" : "IGP-M") + ".");
+        })
+        .catch(function (err) {
+          out.innerHTML = readoutHTML([], "Não foi possível buscar os dados agora (" + err.message + ").", true);
+        });
+    });
+  }
+});
+
+TOOLS.push({
+  id: "salario-liquido", cat: "financas", icon: "💵", title: "Salário Líquido",
+  subtitle: "Descontos de INSS e Imposto de Renda sobre o salário bruto",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Salário bruto mensal (R$)</label><input type="number" id="sl-bruto" placeholder="4000"></div>' +
+      '<div class="field"><label>Dependentes (IR)</label><input type="number" id="sl-dep" value="0" min="0"></div>' +
+      '</div><div id="sl-out"></div>';
+    function calc() {
+      var bruto = toNum($("#sl-bruto", root).value), dep = toNum($("#sl-dep", root).value, 0);
+      var out = $("#sl-out", root);
+      if (!bruto) { out.innerHTML = readoutHTML(); return; }
+      var inss = calcINSS(bruto);
+      var baseIR = bruto - inss;
+      var ir = calcIRPF(baseIR, dep, false);
+      var liquido = bruto - inss - ir.impostoFinal;
+      out.innerHTML = readoutHTML([
+        { label: "Salário líquido", value: fmtBRL(liquido), big: true },
+        { label: "Desconto INSS", value: fmtBRL(inss) },
+        { label: "Desconto IRPF", value: fmtBRL(ir.impostoFinal) },
+        { label: "Total de descontos", value: fmtBRL(inss + ir.impostoFinal), muted: true }
+      ], "Cálculo simplificado (tabelas 2026) — não considera vale-transporte, plano de saúde, pensão alimentícia ou outros descontos específicos.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "rescisao", cat: "financas", icon: "📄", title: "Rescisão Trabalhista",
+  subtitle: "Estimativa de verbas rescisórias por tipo de desligamento",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Salário bruto mensal (R$)</label><input type="number" id="rs-salario" placeholder="3000"></div>' +
+      '<div class="field"><label>Tipo de desligamento</label><select id="rs-tipo">' +
+      '<option value="sem-justa-causa">Demissão sem justa causa</option>' +
+      '<option value="pedido">Pedido de demissão</option>' +
+      '<option value="justa-causa">Justa causa</option>' +
+      '</select></div></div>' +
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Data de admissão</label><input type="date" id="rs-admissao"></div>' +
+      '<div class="field"><label>Data de saída</label><input type="date" id="rs-saida"></div>' +
+      '</div><div id="rs-out"></div>';
+    function mesesEntre(d1, d2) {
+      var meses = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+      if (d2.getDate() >= 15) meses += 1; // considera avo se trabalhou 15+ dias no mês
+      return Math.max(0, meses);
+    }
+    function calc() {
+      var salario = toNum($("#rs-salario", root).value);
+      var tipo = $("#rs-tipo", root).value;
+      var admStr = $("#rs-admissao", root).value, saiStr = $("#rs-saida", root).value;
+      var out = $("#rs-out", root);
+      if (!salario || !admStr || !saiStr) { out.innerHTML = readoutHTML(); return; }
+      var adm = new Date(admStr + "T00:00:00"), sai = new Date(saiStr + "T00:00:00");
+      if (sai <= adm) { out.innerHTML = readoutHTML([], "A data de saída deve ser depois da admissão.", true); return; }
+      var diaSaida = sai.getDate();
+      var saldoSalario = (salario / 30) * diaSaida;
+
+      var anosCompletos = Math.floor((sai - adm) / (365.25 * 86400000));
+      var mesesTotais = mesesEntre(adm, sai);
+      var avosFerias = mesesTotais % 12 || (mesesTotais >= 12 ? 12 : mesesTotais);
+      var feriasProporcionais = (salario / 12) * Math.min(avosFerias, 12) * (4 / 3);
+
+      var avos13 = (function () {
+        var mesesNoAno = (sai.getFullYear() > adm.getFullYear() ? sai.getMonth() + 1 : mesesTotais);
+        return Math.min(sai.getDate() >= 15 ? mesesNoAno : mesesNoAno, 12);
+      })();
+      var decimoTerceiro = (salario / 12) * Math.min(sai.getMonth() + 1, 12);
+
+      var avisoPrevio = 0, multaFgts = 0;
+      var fgtsAcumulado = salario * 0.08 * mesesTotais;
+      if (tipo === "sem-justa-causa") {
+        avisoPrevio = salario + Math.min(90 - 30, anosCompletos * 3) / 30 * salario;
+        multaFgts = fgtsAcumulado * 0.4;
+      }
+
+      var total = saldoSalario;
+      var rows = [{ label: "Saldo de salário", value: fmtBRL(saldoSalario) }];
+      if (tipo !== "justa-causa") {
+        total += feriasProporcionais + decimoTerceiro;
+        rows.push({ label: "Férias proporcionais + 1/3", value: fmtBRL(feriasProporcionais) });
+        rows.push({ label: "13º salário proporcional", value: fmtBRL(decimoTerceiro) });
+      }
+      if (tipo === "sem-justa-causa") {
+        total += avisoPrevio + multaFgts;
+        rows.push({ label: "Aviso prévio indenizado", value: fmtBRL(avisoPrevio) });
+        rows.push({ label: "Multa de 40% do FGTS", value: fmtBRL(multaFgts) });
+      }
+      out.innerHTML = readoutHTML([{ label: "Total estimado a receber", value: fmtBRL(total), big: true }].concat(rows),
+        "Cálculo simplificado e educativo — não substitui o TRCT oficial nem considera férias vencidas, horas extras ou acordos específicos.", true);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "aposentadoria", cat: "financas", icon: "🧓", title: "Calculadora de Aposentadoria (INSS)",
+  subtitle: "Simulação simplificada das regras de transição vigentes em 2026",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="ap-sexo"><button class="active" data-v="f">Mulher</button><button data-v="m">Homem</button></div>' +
+      '<div class="field-row cols-2" style="margin-top:12px">' +
+      '<div class="field"><label>Idade atual (anos)</label><input type="number" id="ap-idade" placeholder="55"></div>' +
+      '<div class="field"><label>Tempo de contribuição (anos)</label><input type="number" id="ap-tempo" placeholder="32"></div>' +
+      '</div><div id="ap-out"></div>';
+    var sexo = "f";
+    $all("#ap-sexo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#ap-sexo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); sexo = b.dataset.v; calc();
+      });
+    });
+    function calc() {
+      var idade = toNum($("#ap-idade", root).value), tempo = toNum($("#ap-tempo", root).value);
+      var out = $("#ap-out", root);
+      if (!idade || !tempo) { out.innerHTML = readoutHTML(); return; }
+      var pontos = idade + tempo;
+      var pontosNecessarios = sexo === "f" ? 93 : 103;
+      var tempoMinimo = sexo === "f" ? 30 : 35;
+      var idadeMinProgressiva = sexo === "f" ? 59.5 : 64.5;
+      var anosBase = sexo === "f" ? 15 : 20;
+
+      var elegPontos = pontos >= pontosNecessarios && tempo >= tempoMinimo;
+      var elegIdade = idade >= idadeMinProgressiva && tempo >= tempoMinimo;
+
+      var pctBeneficio = Math.min(100, 60 + 2 * Math.max(0, tempo - anosBase));
+
+      var rows = [
+        { label: "Pontos atuais (idade + contribuição)", value: pontos, big: true },
+        { label: "Regra de pontos (" + pontosNecessarios + " pontos + " + tempoMinimo + " anos)", value: elegPontos ? "Já cumpre ✓" : "Faltam " + Math.max(0, pontosNecessarios - pontos) + " pontos" },
+        { label: "Idade mínima progressiva (" + fmtNum(idadeMinProgressiva, 1) + " anos + " + tempoMinimo + " anos)", value: elegIdade ? "Já cumpre ✓" : "Faltam " + fmtNum(Math.max(0, idadeMinProgressiva - idade), 1) + " anos de idade" },
+        { label: "Benefício estimado (% da média salarial)", value: fmtNum(pctBeneficio, 0) + "%", muted: true }
+      ];
+      out.innerHTML = readoutHTML(rows, "Simulação educativa com base nas regras de transição de 2026 (EC 103/2019) — não substitui a simulação oficial no app/site Meu INSS.", true);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
 /* ---------- 3. MATEMÁTICA E UTILIDADES ---------- */
 TOOLS.push({
   id: "calculadora", cat: "matematica", icon: "🧮", title: "Calculadora e Porcentagem",
@@ -1192,6 +1642,178 @@ TOOLS.push({
   }
 });
 
+TOOLS.push({
+  id: "idade-exata", cat: "matematica", icon: "🎂", title: "Idade Exata",
+  subtitle: "Anos, meses, dias vividos e contagem para o próximo aniversário",
+  mount: function (root) {
+    root.innerHTML = '<div class="field"><label>Data de nascimento</label><input type="date" id="ie-nasc"></div><div id="ie-out"></div>';
+    function calc() {
+      var v = $("#ie-nasc", root).value;
+      var out = $("#ie-out", root);
+      if (!v) { out.innerHTML = readoutHTML(); return; }
+      var nasc = new Date(v + "T00:00:00");
+      var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      if (nasc > hoje) { out.innerHTML = readoutHTML([], "Essa data ainda não chegou.", true); return; }
+      var anos = hoje.getFullYear() - nasc.getFullYear();
+      var meses = hoje.getMonth() - nasc.getMonth();
+      var dias = hoje.getDate() - nasc.getDate();
+      if (dias < 0) { meses--; dias += new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate(); }
+      if (meses < 0) { anos--; meses += 12; }
+      var totalDias = Math.round((hoje - nasc) / 86400000);
+      var proximoAniversario = new Date(hoje.getFullYear(), nasc.getMonth(), nasc.getDate());
+      if (proximoAniversario < hoje) proximoAniversario.setFullYear(hoje.getFullYear() + 1);
+      var diasParaAniversario = Math.round((proximoAniversario - hoje) / 86400000);
+      out.innerHTML = readoutHTML([
+        { label: "Idade", value: anos + " anos, " + meses + " meses e " + dias + " dias", big: true },
+        { label: "Total de dias vividos", value: fmtNum(totalDias, 0) },
+        { label: "Dias até o próximo aniversário", value: diasParaAniversario, muted: true }
+      ]);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+/* Feriados nacionais (fixos + móveis via cálculo da Páscoa) */
+function pascoa(ano) {
+  var a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4;
+  var f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  var h = (19 * a + b - d - g + 15) % 30;
+  var i = Math.floor(c / 4), k = c % 4;
+  var l = (32 + 2 * e + 2 * i - h - k) % 7;
+  var m = Math.floor((a + 11 * h + 22 * l) / 451);
+  var mes = Math.floor((h + l - 7 * m + 114) / 31);
+  var dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(ano, mes - 1, dia);
+}
+function feriadosNacionais(ano) {
+  var pasc = pascoa(ano);
+  function addDays(d, n) { return new Date(d.getTime() + n * 86400000); }
+  var lista = [
+    new Date(ano, 0, 1), addDays(pasc, -47), addDays(pasc, -2), addDays(pasc, 0),
+    new Date(ano, 3, 21), new Date(ano, 4, 1), addDays(pasc, 60),
+    new Date(ano, 8, 7), new Date(ano, 9, 12), new Date(ano, 10, 2),
+    new Date(ano, 10, 15), new Date(ano, 11, 25)
+  ];
+  return lista.map(function (d) { return d.toDateString(); });
+}
+
+TOOLS.push({
+  id: "dias-uteis", cat: "matematica", icon: "🗓", title: "Somar / Contar Dias Úteis",
+  subtitle: "Prazos de entrega e boletos, pulando fins de semana e feriados",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="du-modo"><button class="active" data-v="somar">Somar dias úteis a uma data</button><button data-v="contar">Contar dias úteis entre datas</button></div>' +
+      '<div id="du-body" style="margin-top:12px"></div>' +
+      '<div class="field" style="margin-top:8px"><label><input type="checkbox" id="du-feriados" checked style="width:auto;margin-right:6px">Considerar feriados nacionais</label></div>' +
+      '<div id="du-out"></div>';
+    var modo = "somar";
+    function render() {
+      var body = $("#du-body", root);
+      if (modo === "somar") {
+        body.innerHTML =
+          '<div class="field-row cols-2"><div class="field"><label>Data inicial</label><input type="date" id="du-data"></div>' +
+          '<div class="field"><label>Dias úteis a somar</label><input type="number" id="du-qtd" placeholder="10"></div></div>';
+      } else {
+        body.innerHTML =
+          '<div class="field-row cols-2"><div class="field"><label>Data inicial</label><input type="date" id="du-data1"></div>' +
+          '<div class="field"><label>Data final</label><input type="date" id="du-data2"></div></div>';
+      }
+      calc();
+    }
+    function isFeriado(d, feriadosSet) { return feriadosSet.indexOf(d.toDateString()) !== -1; }
+    function calc() {
+      var out = $("#du-out", root);
+      var considerarFeriados = $("#du-feriados", root).checked;
+      if (modo === "somar") {
+        var dataStr = $("#du-data", root).value, qtd = toNum($("#du-qtd", root).value);
+        if (!dataStr || !qtd) { out.innerHTML = readoutHTML(); return; }
+        var d = new Date(dataStr + "T00:00:00");
+        var feriados = considerarFeriados ? feriadosNacionais(d.getFullYear()).concat(feriadosNacionais(d.getFullYear() + 1)) : [];
+        var count = 0;
+        while (count < qtd) {
+          d = new Date(d.getTime() + 86400000);
+          var dow = d.getDay();
+          if (dow !== 0 && dow !== 6 && !isFeriado(d, feriados)) count++;
+        }
+        out.innerHTML = readoutHTML([{ label: "Data final", value: d.toLocaleDateString("pt-BR"), big: true }]);
+      } else {
+        var s1 = $("#du-data1", root).value, s2 = $("#du-data2", root).value;
+        if (!s1 || !s2) { out.innerHTML = readoutHTML(); return; }
+        var start = new Date(s1 + "T00:00:00"), end = new Date(s2 + "T00:00:00");
+        if (end < start) { out.innerHTML = readoutHTML([], "A data final deve ser depois da inicial.", true); return; }
+        var feriados2 = [];
+        if (considerarFeriados) for (var y = start.getFullYear(); y <= end.getFullYear(); y++) feriados2 = feriados2.concat(feriadosNacionais(y));
+        var cursor = new Date(start), uteis = 0;
+        while (cursor <= end) {
+          var dow2 = cursor.getDay();
+          if (dow2 !== 0 && dow2 !== 6 && !isFeriado(cursor, feriados2)) uteis++;
+          cursor = new Date(cursor.getTime() + 86400000);
+        }
+        out.innerHTML = readoutHTML([{ label: "Dias úteis no período", value: uteis, big: true }]);
+      }
+    }
+    $all("#du-modo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#du-modo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); modo = b.dataset.v; render();
+      });
+    });
+    root.addEventListener("input", calc);
+    render();
+  }
+});
+
+TOOLS.push({
+  id: "regra-tres", cat: "matematica", icon: "➗", title: "Regra de Três",
+  subtitle: "Simples e composta — proporções do dia a dia",
+  mount: function (root) {
+    root.innerHTML =
+      '<p class="field-hint">Se A vale B, quanto vale C?</p>' +
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>A</label><input type="number" id="r3-a" placeholder="3"></div>' +
+      '<div class="field"><label>B</label><input type="number" id="r3-b" placeholder="6"></div>' +
+      '<div class="field"><label>C</label><input type="number" id="r3-c" placeholder="5"></div>' +
+      '</div><div id="r3-out"></div>';
+    function calc() {
+      var a = toNum($("#r3-a", root).value), b = toNum($("#r3-b", root).value), c = toNum($("#r3-c", root).value);
+      var out = $("#r3-out", root);
+      if (!a || isNaN(b) || isNaN(c)) { out.innerHTML = readoutHTML(); return; }
+      out.innerHTML = readoutHTML([{ label: "X (diretamente proporcional)", value: fmtNum((b * c) / a, 4), big: true }], "Para grandezas inversamente proporcionais, use X = (A×B)/C.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "bhaskara", cat: "matematica", icon: "𝑥²", title: "Fórmula de Bhaskara",
+  subtitle: "Raízes de uma equação do 2º grau (ax² + bx + c = 0)",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>a</label><input type="number" id="bh-a" placeholder="1"></div>' +
+      '<div class="field"><label>b</label><input type="number" id="bh-b" placeholder="-5"></div>' +
+      '<div class="field"><label>c</label><input type="number" id="bh-c" placeholder="6"></div>' +
+      '</div><div id="bh-out"></div>';
+    function calc() {
+      var a = toNum($("#bh-a", root).value), b = toNum($("#bh-b", root).value), c = toNum($("#bh-c", root).value);
+      var out = $("#bh-out", root);
+      if (!a || isNaN(b) || isNaN(c)) { out.innerHTML = readoutHTML(); return; }
+      var delta = b * b - 4 * a * c;
+      if (delta < 0) {
+        out.innerHTML = readoutHTML([{ label: "Delta", value: fmtNum(delta, 2), big: true }], "Delta negativo — não há raízes reais.", true);
+        return;
+      }
+      var x1 = (-b + Math.sqrt(delta)) / (2 * a), x2 = (-b - Math.sqrt(delta)) / (2 * a);
+      out.innerHTML = readoutHTML([
+        { label: "Delta (Δ)", value: fmtNum(delta, 2), big: true },
+        { label: "x'", value: fmtNum(x1, 4) },
+        { label: "x''", value: fmtNum(x2, 4) }
+      ]);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
 /* ---------- 4. AUTOMOTIVO ---------- */
 TOOLS.push({
   id: "alcool-gasolina", cat: "automotivo", icon: "⛽", title: "Álcool ou Gasolina",
@@ -1212,6 +1834,31 @@ TOOLS.push({
         { label: "Razão álcool/gasolina", value: fmtNum(razao * 100, 1) + "%" },
         { label: "Limite da regra", value: "70%", muted: true }
       ], "Regra prática: se o álcool custar até 70% do preço da gasolina, ele compensa (considerando o menor rendimento do etanol).");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "consumo-combustivel", cat: "automotivo", icon: "🛞", title: "Consumo de Combustível (km/L)",
+  subtitle: "Calcule o rendimento real do seu carro e o custo por km",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>Km rodados</label><input type="number" id="cc-km" placeholder="400"></div>' +
+      '<div class="field"><label>Litros abastecidos</label><input type="number" id="cc-litros" placeholder="32" step="0.1"></div>' +
+      '<div class="field"><label>Preço do combustível (R$/L)</label><input type="number" id="cc-preco" placeholder="5.80" step="0.01"></div>' +
+      '</div><div id="cc-out"></div>';
+    function calc() {
+      var km = toNum($("#cc-km", root).value), l = toNum($("#cc-litros", root).value), preco = toNum($("#cc-preco", root).value, 0);
+      var out = $("#cc-out", root);
+      if (!km || !l) { out.innerHTML = readoutHTML(); return; }
+      var kmL = km / l, custoKm = preco ? preco / kmL : NaN;
+      out.innerHTML = readoutHTML([
+        { label: "Consumo médio", value: fmtNum(kmL, 2) + " km/L", big: true },
+        { label: "Custo por km rodado", value: isNaN(custoKm) ? "—" : fmtBRL(custoKm) },
+        { label: "Custo total do abastecimento", value: preco ? fmtBRL(l * preco) : "—", muted: true }
+      ]);
     }
     root.addEventListener("input", calc);
   }
@@ -1262,28 +1909,67 @@ TOOLS.push({
       var body = $("#doc-body", root);
       if (tipo === "cep") {
         body.innerHTML =
-          '<div class="field-row cols-2">' +
-          '<div class="field"><label>CEP</label><input type="text" id="cep-input" placeholder="50030-230"></div>' +
-          '<div class="field" style="justify-content:flex-end"><button class="btn primary" id="cep-buscar">Consultar endereço</button></div>' +
-          '</div><div id="doc-out"></div>';
-        $("#cep-buscar", root).addEventListener("click", function () {
-          var cep = onlyDigits($("#cep-input", root).value);
-          var out = $("#doc-out", root);
-          if (cep.length !== 8) { out.innerHTML = readoutHTML([], "CEP deve ter 8 dígitos.", true); return; }
-          out.innerHTML = '<div class="readout empty">Consultando…</div>';
-          fetch("https://viacep.com.br/ws/" + cep + "/json/")
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-              if (d.erro) { out.innerHTML = readoutHTML([], "CEP não encontrado.", true); return; }
-              out.innerHTML = readoutHTML([
-                { label: "Logradouro", value: d.logradouro || "—", big: true },
-                { label: "Bairro", value: d.bairro || "—" },
-                { label: "Cidade / UF", value: d.localidade + " / " + d.uf },
-                { label: "DDD", value: d.ddd || "—", muted: true }
-              ], "Fonte: ViaCEP (base pública dos Correios).");
-            })
-            .catch(function () { out.innerHTML = readoutHTML([], "Erro ao consultar o CEP.", true); });
+          '<div class="pill-toggle" id="cep-modo"><button class="active" data-v="cep-endereco">CEP → Endereço</button><button data-v="endereco-cep">Endereço → CEP</button></div>' +
+          '<div id="cep-body" style="margin-top:12px"></div>';
+        var cepModo = "cep-endereco";
+        function renderCep() {
+          var cbody = $("#cep-body", root);
+          if (cepModo === "cep-endereco") {
+            cbody.innerHTML =
+              '<div class="field-row cols-2">' +
+              '<div class="field"><label>CEP</label><input type="text" id="cep-input" placeholder="50030-230"></div>' +
+              '<div class="field" style="justify-content:flex-end"><button class="btn primary" id="cep-buscar">Consultar endereço</button></div>' +
+              '</div><div id="doc-out"></div>';
+            $("#cep-buscar", root).addEventListener("click", function () {
+              var cep = onlyDigits($("#cep-input", root).value);
+              var out = $("#doc-out", root);
+              if (cep.length !== 8) { out.innerHTML = readoutHTML([], "CEP deve ter 8 dígitos.", true); return; }
+              out.innerHTML = '<div class="readout empty">Consultando…</div>';
+              fetch("https://viacep.com.br/ws/" + cep + "/json/")
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                  if (d.erro) { out.innerHTML = readoutHTML([], "CEP não encontrado.", true); return; }
+                  out.innerHTML = readoutHTML([
+                    { label: "Logradouro", value: d.logradouro || "—", big: true },
+                    { label: "Bairro", value: d.bairro || "—" },
+                    { label: "Cidade / UF", value: d.localidade + " / " + d.uf },
+                    { label: "DDD", value: d.ddd || "—", muted: true }
+                  ], "Fonte: ViaCEP (base pública dos Correios).");
+                })
+                .catch(function () { out.innerHTML = readoutHTML([], "Erro ao consultar o CEP.", true); });
+            });
+          } else {
+            cbody.innerHTML =
+              '<div class="field-row cols-3">' +
+              '<div class="field"><label>UF</label><input type="text" id="ec-uf" placeholder="PE" maxlength="2"></div>' +
+              '<div class="field"><label>Cidade</label><input type="text" id="ec-cidade" placeholder="Recife"></div>' +
+              '<div class="field"><label>Logradouro</label><input type="text" id="ec-rua" placeholder="Rua da Aurora"></div>' +
+              '</div><div class="btn-row"><button class="btn primary" id="ec-buscar">Buscar CEP</button></div><div id="doc-out"></div>';
+            $("#ec-buscar", root).addEventListener("click", function () {
+              var uf = $("#ec-uf", root).value.trim(), cidade = $("#ec-cidade", root).value.trim(), rua = $("#ec-rua", root).value.trim();
+              var out = $("#doc-out", root);
+              if (!uf || !cidade || rua.length < 3) { out.innerHTML = readoutHTML([], "Informe UF, cidade e ao menos 3 letras do logradouro.", true); return; }
+              out.innerHTML = '<div class="readout empty">Consultando…</div>';
+              fetch("https://viacep.com.br/ws/" + encodeURIComponent(uf) + "/" + encodeURIComponent(cidade) + "/" + encodeURIComponent(rua) + "/json/")
+                .then(function (r) { return r.json(); })
+                .then(function (arr) {
+                  if (!arr || !arr.length || arr.erro) { out.innerHTML = readoutHTML([], "Nenhum CEP encontrado para esse endereço.", true); return; }
+                  var html = '<div class="readout">' + arr.slice(0, 8).map(function (d) {
+                    return '<div class="readout-row"><span class="readout-label">' + escapeHtml(d.logradouro || d.bairro || "—") + '</span><span class="readout-value">' + d.cep + '</span></div>';
+                  }).join("") + '</div>';
+                  out.innerHTML = html;
+                })
+                .catch(function () { out.innerHTML = readoutHTML([], "Erro ao consultar o endereço.", true); });
+            });
+          }
+        }
+        $all("#cep-modo button", root).forEach(function (b) {
+          b.addEventListener("click", function () {
+            $all("#cep-modo button", root).forEach(function (x) { x.classList.remove("active"); });
+            b.classList.add("active"); cepModo = b.dataset.v; renderCep();
+          });
         });
+        renderCep();
       } else {
         body.innerHTML =
           '<div class="field-row cols-2">' +
@@ -1344,7 +2030,7 @@ TOOLS.push({
   mount: function (root) {
     root.innerHTML =
       '<div class="field-row cols-3">' +
-      '<div class="field"><label>Grandeza</label><select id="cu-grupo"><option value="temperatura">Temperatura</option><option value="comprimento">Comprimento</option><option value="peso">Peso</option><option value="velocidade">Velocidade</option><option value="volume">Volume</option></select></div>' +
+      '<div class="field"><label>Grandeza</label><select id="cu-grupo"><option value="temperatura">Temperatura</option><option value="comprimento">Comprimento</option><option value="area">Área</option><option value="peso">Peso</option><option value="velocidade">Velocidade</option><option value="volume">Volume</option></select></div>' +
       '<div class="field"><label>De</label><select id="cu-de"></select></div>' +
       '<div class="field"><label>Para</label><select id="cu-para"></select></div>' +
       '</div><div class="field"><label>Valor</label><input type="number" id="cu-valor" value="1"></div><div id="cu-out"></div>';
@@ -1421,6 +2107,29 @@ TOOLS.push({
   }
 });
 
+TOOLS.push({
+  id: "nota-enem", cat: "educacao", icon: "🎓", title: "Nota do ENEM (Média Ponderada)",
+  subtitle: "Simule sua média com pesos por área, conforme o curso escolhido",
+  mount: function (root) {
+    var areas = ["Linguagens", "Ciências Humanas", "Ciências da Natureza", "Matemática", "Redação"];
+    root.innerHTML = areas.map(function (a, i) {
+      return '<div class="field-row cols-2"><div class="field"><label>' + a + ' — nota</label><input type="number" id="enem-n' + i + '" min="0" max="1000"></div>' +
+        '<div class="field"><label>' + a + ' — peso</label><input type="number" id="enem-p' + i + '" value="1" min="0" step="0.5"></div></div>';
+    }).join("") + '<div id="enem-out"></div>';
+    function calc() {
+      var somaNotas = 0, somaPesos = 0, algumaNota = false;
+      for (var i = 0; i < areas.length; i++) {
+        var n = toNum($("#enem-n" + i, root).value), p = toNum($("#enem-p" + i, root).value, 1);
+        if (!isNaN(n)) { somaNotas += n * p; somaPesos += p; algumaNota = true; }
+      }
+      var out = $("#enem-out", root);
+      if (!algumaNota || somaPesos === 0) { out.innerHTML = readoutHTML(); return; }
+      out.innerHTML = readoutHTML([{ label: "Média ponderada", value: fmtNum(somaNotas / somaPesos, 2), big: true }], "Os pesos por área variam de curso para curso no SISU — confira o edital da instituição desejada.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
 /* ---------- 7. CASA, CONSTRUÇÃO E ENERGIA ---------- */
 TOOLS.push({
   id: "consumo-eletrico", cat: "casa", icon: "🔌", title: "Consumo Elétrico por Eletrodoméstico",
@@ -1436,583 +2145,4 @@ TOOLS.push({
       var p = toNum($("#ce-pot", root).value), h = toNum($("#ce-horas", root).value), d = toNum($("#ce-dias", root).value), t = toNum($("#ce-tarifa", root).value);
       var out = $("#ce-out", root);
       if (!p || !h || !d || !t) { out.innerHTML = readoutHTML(); return; }
-      var kwhMes = (p * h * d) / 1000, custoMes = kwhMes * t;
-      out.innerHTML = readoutHTML([
-        { label: "Custo mensal", value: fmtBRL(custoMes), big: true },
-        { label: "Consumo mensal", value: fmtNum(kwhMes, 1) + " kWh" },
-        { label: "Custo anual estimado", value: fmtBRL(custoMes * 12), muted: true }
-      ]);
-    }
-    root.addEventListener("input", calc);
-  }
-});
-
-TOOLS.push({
-  id: "material-obra", cat: "casa", icon: "🧱", title: "Quantidade de Tinta e Materiais",
-  subtitle: "Tinta, piso e tijolos para sua obra ou reforma",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="pill-toggle" id="mo-tipo"><button class="active" data-v="tinta">Tinta</button><button data-v="piso">Piso</button><button data-v="tijolo">Tijolo</button></div>' +
-      '<div id="mo-body" style="margin-top:12px"></div>';
-    var tipo = "tinta";
-    function render() {
-      var body = $("#mo-body", root);
-      if (tipo === "tinta") {
-        body.innerHTML =
-          '<div class="field-row cols-3">' +
-          '<div class="field"><label>Área a pintar (m²)</label><input type="number" id="mo-area" placeholder="40"></div>' +
-          '<div class="field"><label>Demãos</label><input type="number" id="mo-demaos" value="2"></div>' +
-          '<div class="field"><label>Rendimento (m²/litro)</label><input type="number" id="mo-rend" value="6"></div>' +
-          '</div><div id="mo-out"></div>';
-        var recalc = function () {
-          var a = toNum($("#mo-area", root).value), dm = toNum($("#mo-demaos", root).value, 2), rend = toNum($("#mo-rend", root).value, 6);
-          var out = $("#mo-out", root);
-          if (!a) { out.innerHTML = readoutHTML(); return; }
-          var litros = (a * dm) / rend;
-          out.innerHTML = readoutHTML([
-            { label: "Tinta necessária", value: fmtNum(litros, 1) + " L", big: true },
-            { label: "Latas de 18 L", value: Math.ceil(litros / 18) },
-            { label: "Latas de 3,6 L", value: Math.ceil(litros / 3.6), muted: true }
-          ]);
-        };
-        body.addEventListener("input", recalc);
-      } else if (tipo === "piso") {
-        body.innerHTML =
-          '<div class="field-row cols-2">' +
-          '<div class="field"><label>Área do cômodo (m²)</label><input type="number" id="mo-area2" placeholder="20"></div>' +
-          '<div class="field"><label>Perda / quebra (%)</label><input type="number" id="mo-perda" value="10"></div>' +
-          '</div><div id="mo-out"></div>';
-        var recalc2 = function () {
-          var a = toNum($("#mo-area2", root).value), perda = toNum($("#mo-perda", root).value, 10);
-          var out = $("#mo-out", root);
-          if (!a) { out.innerHTML = readoutHTML(); return; }
-          out.innerHTML = readoutHTML([{ label: "Comprar", value: fmtNum(a * (1 + perda / 100), 2) + " m²", big: true }]);
-        };
-        body.addEventListener("input", recalc2);
-      } else {
-        body.innerHTML =
-          '<div class="field-row cols-3">' +
-          '<div class="field"><label>Área da parede (m²)</label><input type="number" id="mo-parede" placeholder="30"></div>' +
-          '<div class="field"><label>Tipo</label><select id="mo-tipotijolo"><option value="25">Tijolo comum (6 furos) — 25/m²</option><option value="27">Tijolo baiano (8 furos) — 27/m²</option><option value="12.5">Bloco de concreto — 12,5/m²</option></select></div>' +
-          '<div class="field"><label>Perda (%)</label><input type="number" id="mo-perda2" value="10"></div>' +
-          '</div><div id="mo-out"></div>';
-        var recalc3 = function () {
-          var a = toNum($("#mo-parede", root).value), unMetro = toNum($("#mo-tipotijolo", root).value), perda = toNum($("#mo-perda2", root).value, 10);
-          var out = $("#mo-out", root);
-          if (!a) { out.innerHTML = readoutHTML(); return; }
-          var qtd = Math.ceil(a * unMetro * (1 + perda / 100));
-          out.innerHTML = readoutHTML([{ label: "Unidades necessárias", value: qtd, big: true }]);
-        };
-        body.addEventListener("input", recalc3);
-      }
-    }
-    $all("#mo-tipo button", root).forEach(function (b) {
-      b.addEventListener("click", function () {
-        $all("#mo-tipo button", root).forEach(function (x) { x.classList.remove("active"); });
-        b.classList.add("active"); tipo = b.dataset.v; render();
-      });
-    });
-    render();
-  }
-});
-
-TOOLS.push({
-  id: "ar-condicionado", cat: "casa", icon: "❄", title: "Dimensionamento de Ar-Condicionado",
-  subtitle: "BTUs recomendados para o ambiente",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="field-row cols-3">' +
-      '<div class="field"><label>Área do ambiente (m²)</label><input type="number" id="ac-area" placeholder="18"></div>' +
-      '<div class="field"><label>Pessoas no ambiente</label><input type="number" id="ac-pessoas" value="2"></div>' +
-      '<div class="field"><label>Insolação</label><select id="ac-sol"><option value="0">Pouco sol / sombra</option><option value="1" selected>Sol moderado</option><option value="2">Muito sol (oeste/norte)</option></select></div>' +
-      '</div><div id="ac-out"></div>';
-    var CAPACIDADES = [7000, 9000, 12000, 18000, 21000, 24000, 30000, 36000, 48000, 60000];
-    function calc() {
-      var area = toNum($("#ac-area", root).value), pessoas = toNum($("#ac-pessoas", root).value, 2), sol = toNum($("#ac-sol", root).value, 1);
-      var out = $("#ac-out", root);
-      if (!area) { out.innerHTML = readoutHTML(); return; }
-      var btu = area * 600;
-      if (sol === 2) btu *= 1.15; else if (sol === 0) btu *= 0.9;
-      if (pessoas > 2) btu += (pessoas - 2) * 600;
-      var sugerido = CAPACIDADES.find(function (c) { return c >= btu; }) || CAPACIDADES[CAPACIDADES.length - 1];
-      out.innerHTML = readoutHTML([
-        { label: "Capacidade sugerida", value: fmtNum(sugerido, 0) + " BTUs", big: true },
-        { label: "Cálculo bruto", value: fmtNum(btu, 0) + " BTUs", muted: true }
-      ], "Estimativa geral (600 BTU/m²) — ambientes com muitos equipamentos eletrônicos podem exigir capacidade maior.");
-    }
-    root.addEventListener("input", calc);
-  }
-});
-
-/* ---------- 8. FINANÇAS AVANÇADAS E NEGÓCIOS ---------- */
-TOOLS.push({
-  id: "markup", cat: "negocios", icon: "🏷", title: "Preço de Venda (Markup)",
-  subtitle: "Preço ideal considerando custos e margem desejada",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="field-row cols-3">' +
-      '<div class="field"><label>Custo do produto (R$)</label><input type="number" id="mk-custo" placeholder="50"></div>' +
-      '<div class="field"><label>Despesas fixas + variáveis (%)</label><input type="number" id="mk-desp" placeholder="20"></div>' +
-      '<div class="field"><label>Margem de lucro desejada (%)</label><input type="number" id="mk-margem" placeholder="15"></div>' +
-      '</div><div id="mk-out"></div>';
-    function calc() {
-      var custo = toNum($("#mk-custo", root).value), desp = toNum($("#mk-desp", root).value, 0) / 100, margem = toNum($("#mk-margem", root).value, 0) / 100;
-      var out = $("#mk-out", root);
-      var divisor = 1 - desp - margem;
-      if (!custo || divisor <= 0) { out.innerHTML = readoutHTML([], divisor <= 0 ? "A soma de despesas + margem não pode ser 100% ou mais." : "", divisor <= 0); return; }
-      var preco = custo / divisor;
-      out.innerHTML = readoutHTML([
-        { label: "Preço de venda sugerido", value: fmtBRL(preco), big: true },
-        { label: "Markup multiplicador", value: fmtNum(preco / custo, 2) + "x" },
-        { label: "Lucro líquido por unidade", value: fmtBRL(preco * margem) }
-      ]);
-    }
-    root.addEventListener("input", calc);
-  }
-});
-
-TOOLS.push({
-  id: "antecipacao", cat: "negocios", icon: "⏩", title: "Antecipação de Recebíveis",
-  subtitle: "Valor líquido ao antecipar parcelas de cartão",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="field-row cols-3">' +
-      '<div class="field"><label>Valor a receber (R$)</label><input type="number" id="an-valor" placeholder="10000"></div>' +
-      '<div class="field"><label>Taxa de desconto (% ao mês)</label><input type="number" id="an-taxa" placeholder="2.5" step="0.01"></div>' +
-      '<div class="field"><label>Dias de antecipação</label><input type="number" id="an-dias" placeholder="30"></div>' +
-      '</div><div id="an-out"></div>';
-    function calc() {
-      var v = toNum($("#an-valor", root).value), taxaMes = toNum($("#an-taxa", root).value) / 100, dias = toNum($("#an-dias", root).value);
-      var out = $("#an-out", root);
-      if (!v || isNaN(taxaMes) || !dias) { out.innerHTML = readoutHTML(); return; }
-      var taxaDia = taxaMes / 30, desconto = v * taxaDia * dias, liquido = v - desconto;
-      out.innerHTML = readoutHTML([
-        { label: "Valor líquido recebido", value: fmtBRL(liquido), big: true },
-        { label: "Desconto total", value: fmtBRL(desconto) },
-        { label: "Taxa efetiva no período", value: fmtNum(taxaDia * dias * 100, 2) + "%", muted: true }
-      ]);
-    }
-    root.addEventListener("input", calc);
-  }
-});
-
-TOOLS.push({
-  id: "breakeven", cat: "negocios", icon: "⚖", title: "Ponto de Equilíbrio (Break-Even)",
-  subtitle: "Quantas unidades vender para empatar as contas",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="field-row cols-3">' +
-      '<div class="field"><label>Custos fixos mensais (R$)</label><input type="number" id="be-fixo" placeholder="8000"></div>' +
-      '<div class="field"><label>Preço de venda unitário (R$)</label><input type="number" id="be-preco" placeholder="50"></div>' +
-      '<div class="field"><label>Custo variável unitário (R$)</label><input type="number" id="be-var" placeholder="30"></div>' +
-      '</div><div id="be-out"></div>';
-    function calc() {
-      var fixo = toNum($("#be-fixo", root).value), preco = toNum($("#be-preco", root).value), varUnit = toNum($("#be-var", root).value);
-      var out = $("#be-out", root);
-      var margemContrib = preco - varUnit;
-      if (!fixo || !preco || isNaN(varUnit) || margemContrib <= 0) { out.innerHTML = readoutHTML([], margemContrib <= 0 && preco ? "O preço de venda deve ser maior que o custo variável." : "", margemContrib <= 0); return; }
-      var unidades = fixo / margemContrib;
-      out.innerHTML = readoutHTML([
-        { label: "Ponto de equilíbrio", value: Math.ceil(unidades) + " unidades/mês", big: true },
-        { label: "Em faturamento", value: fmtBRL(unidades * preco) },
-        { label: "Margem de contribuição unitária", value: fmtBRL(margemContrib), muted: true }
-      ]);
-    }
-    root.addEventListener("input", calc);
-  }
-});
-
-TOOLS.push({
-  id: "valuation", cat: "negocios", icon: "📈", title: "Valuation Simplificado",
-  subtitle: "Estimativa de valor por múltiplo de faturamento/EBITDA ou fluxo de caixa (Gordon)",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="pill-toggle" id="val-tipo"><button class="active" data-v="multiplo">Múltiplo</button><button data-v="gordon">Fluxo de caixa (Gordon)</button></div>' +
-      '<div id="val-body" style="margin-top:12px"></div>';
-    var tipo = "multiplo";
-    function render() {
-      var body = $("#val-body", root);
-      if (tipo === "multiplo") {
-        body.innerHTML =
-          '<div class="field-row cols-2">' +
-          '<div class="field"><label>Faturamento ou EBITDA anual (R$)</label><input type="number" id="val-base" placeholder="500000"></div>' +
-          '<div class="field"><label>Múltiplo do setor</label><input type="number" id="val-mult" placeholder="3" step="0.1"></div>' +
-          '</div><div id="val-out"></div>';
-        body.addEventListener("input", function () {
-          var base = toNum($("#val-base", root).value), mult = toNum($("#val-mult", root).value);
-          var out = $("#val-out", root);
-          if (!base || !mult) { out.innerHTML = readoutHTML(); return; }
-          out.innerHTML = readoutHTML([{ label: "Valor estimado da empresa", value: fmtBRL(base * mult), big: true }], "Método rápido de mercado — múltiplos variam bastante por setor e porte.");
-        });
-      } else {
-        body.innerHTML =
-          '<div class="field-row cols-3">' +
-          '<div class="field"><label>Fluxo de caixa anual (R$)</label><input type="number" id="val-fc" placeholder="100000"></div>' +
-          '<div class="field"><label>Taxa de desconto (%)</label><input type="number" id="val-desc" placeholder="15" step="0.1"></div>' +
-          '<div class="field"><label>Crescimento perpétuo (%)</label><input type="number" id="val-cresc" placeholder="3" step="0.1"></div>' +
-          '</div><div id="val-out"></div>';
-        body.addEventListener("input", function () {
-          var fc = toNum($("#val-fc", root).value), desc = toNum($("#val-desc", root).value) / 100, cresc = toNum($("#val-cresc", root).value) / 100;
-          var out = $("#val-out", root);
-          if (!fc || isNaN(desc) || desc <= cresc) { out.innerHTML = readoutHTML([], desc <= cresc ? "A taxa de desconto deve ser maior que o crescimento." : "", desc <= cresc); return; }
-          out.innerHTML = readoutHTML([{ label: "Valor presente (perpetuidade de Gordon)", value: fmtBRL(fc / (desc - cresc)), big: true }], "VP = Fluxo de caixa ÷ (taxa de desconto − crescimento).");
-        });
-      }
-    }
-    $all("#val-tipo button", root).forEach(function (b) {
-      b.addEventListener("click", function () {
-        $all("#val-tipo button", root).forEach(function (x) { x.classList.remove("active"); });
-        b.classList.add("active"); tipo = b.dataset.v; render();
-      });
-    });
-    render();
-  }
-});
-
-/* ---------- 9. COZINHA E GASTRONOMIA ---------- */
-TOOLS.push({
-  id: "medidas-culinarias", cat: "cozinha", icon: "🥄", title: "Conversor de Medidas Culinárias",
-  subtitle: "Xícaras, colheres, gramas e mililitros por ingrediente",
-  mount: function (root) {
-    var ingOpts = Object.keys(CULINARY_DENSITY).map(function (k) { return '<option value="' + k + '">' + k + '</option>'; }).join("");
-    root.innerHTML =
-      '<div class="field-row cols-3">' +
-      '<div class="field"><label>Ingrediente</label><select id="mc-ing">' + ingOpts + '</select></div>' +
-      '<div class="field"><label>Medida</label><select id="mc-medida"><option value="xicara">Xícara (US)</option><option value="colhersopa">Colher de sopa</option><option value="colherche">Colher de chá</option><option value="grama">Gramas</option><option value="ml">Mililitros</option></select></div>' +
-      '<div class="field"><label>Quantidade</label><input type="number" id="mc-qtd" value="1" step="0.1"></div>' +
-      '</div><div id="mc-out"></div>';
-    function calc() {
-      var ing = $("#mc-ing", root).value, medida = $("#mc-medida", root).value, qtd = toNum($("#mc-qtd", root).value, 1);
-      var gPorXicara = CULINARY_DENSITY[ing];
-      var out = $("#mc-out", root);
-      var gramas;
-      if (medida === "xicara") gramas = qtd * gPorXicara;
-      else if (medida === "colhersopa") gramas = qtd * (gPorXicara / CUP_TO_TBSP);
-      else if (medida === "colherche") gramas = qtd * (gPorXicara / CUP_TO_TSP);
-      else if (medida === "grama") gramas = qtd;
-      else gramas = qtd * (gPorXicara / CUP_TO_ML);
-      var ml = medida === "ml" ? qtd : (gramas / gPorXicara) * CUP_TO_ML;
-      out.innerHTML = readoutHTML([
-        { label: "Em gramas", value: fmtNum(gramas, 1) + " g", big: true },
-        { label: "Em mililitros (aprox.)", value: fmtNum(ml, 1) + " ml" },
-        { label: "Xícaras (US)", value: fmtNum(gramas / gPorXicara, 3), muted: true }
-      ], "Densidades aproximadas — variam conforme peneiração/compactação do ingrediente.");
-    }
-    root.addEventListener("input", calc);
-    calc();
-  }
-});
-
-TOOLS.push({
-  id: "churrasco", cat: "cozinha", icon: "🍖", title: "Calculadora de Churrasco / Festa",
-  subtitle: "Carne, bebida e carvão por número de convidados",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="field-row cols-3">' +
-      '<div class="field"><label>Homens</label><input type="number" id="ch-homens" value="0" min="0"></div>' +
-      '<div class="field"><label>Mulheres</label><input type="number" id="ch-mulheres" value="0" min="0"></div>' +
-      '<div class="field"><label>Crianças</label><input type="number" id="ch-criancas" value="0" min="0"></div>' +
-      '</div><div id="ch-out"></div>';
-    function calc() {
-      var h = toNum($("#ch-homens", root).value, 0), m = toNum($("#ch-mulheres", root).value, 0), c = toNum($("#ch-criancas", root).value, 0);
-      var out = $("#ch-out", root);
-      if (h + m + c === 0) { out.innerHTML = readoutHTML(); return; }
-      var carneKg = (h * 0.4) + (m * 0.3) + (c * 0.15);
-      var bebidaL = (h + m) * 1.0 + c * 0.5;
-      var carvaoKg = carneKg * 0.5;
-      out.innerHTML = readoutHTML([
-        { label: "Carne total", value: fmtNum(carneKg, 1) + " kg", big: true },
-        { label: "Bebidas (total)", value: fmtNum(bebidaL, 1) + " L" },
-        { label: "Carvão", value: fmtNum(carvaoKg, 1) + " kg" },
-        { label: "Convidados", value: h + m + c, muted: true }
-      ], "Estimativas médias (400 g/homem, 300 g/mulher, 150 g/criança) — ajuste conforme o perfil do grupo.");
-    }
-    root.addEventListener("input", calc);
-  }
-});
-
-/* ---------- 10. VIAGENS E LOGÍSTICA ---------- */
-TOOLS.push({
-  id: "fuso-horario", cat: "viagem", icon: "🕒", title: "Calculadora de Fuso Horário",
-  subtitle: "Hora atual em duas cidades e diferença entre elas",
-  mount: function (root) {
-    var opts = TZ_CITIES.map(function (c) { return '<option value="' + c[1] + '">' + c[0] + '</option>'; }).join("");
-    root.innerHTML =
-      '<div class="field-row cols-2">' +
-      '<div class="field"><label>Cidade A</label><select id="tz-a">' + opts + '</select></div>' +
-      '<div class="field"><label>Cidade B</label><select id="tz-b">' + opts + '</select></div>' +
-      '</div><div id="tz-out"></div>';
-    $("#tz-b", root).selectedIndex = 4;
-    function offsetFor(tz) {
-      var now = new Date();
-      var fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour12: false, hour: "2-digit", minute: "2-digit" });
-      return fmt.format(now);
-    }
-    function offsetMinutes(tz) {
-      var now = new Date();
-      var dtf = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-      var parts = dtf.formatToParts(now).reduce(function (a, p) { a[p.type] = p.value; return a; }, {});
-      var asUTC = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
-      return (asUTC - now.getTime()) / 60000;
-    }
-    function calc() {
-      var a = $("#tz-a", root).value, b = $("#tz-b", root).value;
-      var out = $("#tz-out", root);
-      var diffMin = offsetMinutes(b) - offsetMinutes(a);
-      var diffH = diffMin / 60;
-      out.innerHTML = readoutHTML([
-        { label: "Hora agora em A", value: offsetFor(a), big: true },
-        { label: "Hora agora em B", value: offsetFor(b), big: true },
-        { label: "Diferença (B em relação a A)", value: (diffH >= 0 ? "+" : "") + fmtNum(diffH, 1) + "h", muted: true }
-      ]);
-    }
-    root.addEventListener("change", calc);
-    calc();
-    setInterval(calc, 30000);
-  }
-});
-
-TOOLS.push({
-  id: "custo-viagem", cat: "viagem", icon: "🚗", title: "Custo de Viagem (Combustível + Pedágio)",
-  subtitle: "Estimativa manual de gasto total de uma viagem de carro",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="field-row cols-3">' +
-      '<div class="field"><label>Distância (km)</label><input type="number" id="cv-dist" placeholder="450"></div>' +
-      '<div class="field"><label>Consumo (km/L)</label><input type="number" id="cv-consumo" placeholder="12" step="0.1"></div>' +
-      '<div class="field"><label>Preço combustível (R$/L)</label><input type="number" id="cv-preco" placeholder="5.80" step="0.01"></div>' +
-      '</div><div class="field-row cols-2">' +
-      '<div class="field"><label>Total em pedágios (R$)</label><input type="number" id="cv-pedagio" placeholder="45"></div>' +
-      '<div class="field"><label>Nº de pessoas dividindo</label><input type="number" id="cv-pessoas" value="1" min="1"></div>' +
-      '</div><div id="cv-out"></div>';
-    function calc() {
-      var d = toNum($("#cv-dist", root).value), cons = toNum($("#cv-consumo", root).value), preco = toNum($("#cv-preco", root).value);
-      var pedagio = toNum($("#cv-pedagio", root).value, 0), pessoas = toNum($("#cv-pessoas", root).value, 1) || 1;
-      var out = $("#cv-out", root);
-      if (!d || !cons || !preco) { out.innerHTML = readoutHTML(); return; }
-      var litros = d / cons, custoComb = litros * preco, total = custoComb + pedagio;
-      out.innerHTML = readoutHTML([
-        { label: "Custo total da viagem", value: fmtBRL(total), big: true },
-        { label: "Combustível", value: fmtBRL(custoComb) + " (" + fmtNum(litros, 1) + " L)" },
-        { label: "Pedágios", value: fmtBRL(pedagio) },
-        { label: "Por pessoa", value: fmtBRL(total / pessoas), muted: true }
-      ], "Rota e pedágios inseridos manualmente — este site não tem acesso a mapas/roteirização em tempo real.");
-    }
-    root.addEventListener("input", calc);
-  }
-});
-
-/* ---------- 11. DESIGN E ÁUDIO ---------- */
-TOOLS.push({
-  id: "contraste", cat: "design", icon: "◐", title: "Contraste de Cores (WCAG)",
-  subtitle: "Verifica acessibilidade de texto sobre fundo",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="field-row cols-2">' +
-      '<div class="field"><label>Cor do texto</label><input type="text" id="wc-texto" value="#ffffff"><input type="color" id="wc-texto-picker" value="#ffffff" style="margin-top:6px;width:100%;height:34px;background:none;border:1px solid var(--line);border-radius:8px"></div>' +
-      '<div class="field"><label>Cor do fundo</label><input type="text" id="wc-fundo" value="#111111"><input type="color" id="wc-fundo-picker" value="#111111" style="margin-top:6px;width:100%;height:34px;background:none;border:1px solid var(--line);border-radius:8px"></div>' +
-      '</div><div id="wc-preview" class="swatch-preview">Texto de exemplo Aa</div><div id="wc-out"></div>';
-    var texto = $("#wc-texto", root), fundo = $("#wc-fundo", root), tp = $("#wc-texto-picker", root), fp = $("#wc-fundo-picker", root), preview = $("#wc-preview", root);
-    function sync() { texto.value = tp.value; fundo.value = fp.value; calc(); }
-    tp.addEventListener("input", sync); fp.addEventListener("input", sync);
-    function calc() {
-      var t = texto.value, f = fundo.value;
-      var out = $("#wc-out", root);
-      if (!/^#[0-9a-fA-F]{3,6}$/.test(t) || !/^#[0-9a-fA-F]{3,6}$/.test(f)) { out.innerHTML = readoutHTML(); return; }
-      function toLongHex(h) { h = h.replace("#", ""); if (h.length === 3) h = h.split("").map(function (x) { return x + x; }).join(""); return "#" + h; }
-      tp.value = toLongHex(t); fp.value = toLongHex(f);
-      preview.style.color = t; preview.style.background = f;
-      var ratio = contrastRatio(t, f);
-      function pass(min) { return ratio >= min ? "Aprovado ✓" : "Reprovado ✗"; }
-      out.innerHTML = readoutHTML([
-        { label: "Razão de contraste", value: fmtNum(ratio, 2) + ":1", big: true },
-        { label: "AA — texto normal (mín. 4.5)", value: pass(4.5) },
-        { label: "AA — texto grande (mín. 3.0)", value: pass(3) },
-        { label: "AAA — texto normal (mín. 7.0)", value: pass(7) },
-        { label: "AAA — texto grande (mín. 4.5)", value: pass(4.5), muted: true }
-      ]);
-    }
-    texto.addEventListener("input", calc); fundo.addEventListener("input", calc);
-    calc();
-  }
-});
-
-TOOLS.push({
-  id: "conversor-midia", cat: "design", icon: "🎧", title: "Conversor de Arquivos de Mídia",
-  subtitle: "Imagens (PNG/JPG/WebP) e áudio para WAV, direto no navegador",
-  mount: function (root) {
-    root.innerHTML =
-      '<div class="pill-toggle" id="cm-tipo"><button class="active" data-v="imagem">Imagem</button><button data-v="audio">Áudio</button></div>' +
-      '<div id="cm-body" style="margin-top:12px"></div>';
-    var tipo = "imagem";
-    function render() {
-      var body = $("#cm-body", root);
-      if (tipo === "imagem") {
-        body.innerHTML =
-          '<label class="file-drop">Clique para escolher uma imagem (PNG, JPG ou WebP)<input type="file" id="cm-img-file" accept="image/*"></label>' +
-          '<div class="field" style="margin-top:12px"><label>Formato de saída</label><select id="cm-img-formato"><option value="image/png">PNG</option><option value="image/jpeg">JPG</option><option value="image/webp">WebP</option></select></div>' +
-          '<div id="cm-img-out"></div>';
-        $("#cm-img-file", root).addEventListener("change", function (e) {
-          var file = e.target.files[0];
-          if (!file) return;
-          var img = new Image();
-          img.onload = function () {
-            var canvas = document.createElement("canvas");
-            canvas.width = img.width; canvas.height = img.height;
-            canvas.getContext("2d").drawImage(img, 0, 0);
-            var mime = $("#cm-img-formato", root).value;
-            canvas.toBlob(function (blob) {
-              var url = URL.createObjectURL(blob);
-              var ext = mime.split("/")[1];
-              $("#cm-img-out", root).innerHTML = readoutHTML([{ label: "Tamanho gerado", value: fmtNum(blob.size / 1024, 1) + " KB", big: true }]) +
-                '<a class="download-link" href="' + url + '" download="convertido.' + ext + '">⬇ Baixar imagem convertida</a>';
-            }, mime, 0.92);
-          };
-          img.src = URL.createObjectURL(file);
-        });
-      } else {
-        body.innerHTML =
-          '<label class="file-drop">Clique para escolher um arquivo de áudio (MP3, OGG, M4A...)<input type="file" id="cm-audio-file" accept="audio/*"></label>' +
-          '<div id="cm-audio-out"></div>';
-        $("#cm-audio-file", root).addEventListener("change", function (e) {
-          var file = e.target.files[0];
-          if (!file) return;
-          var out = $("#cm-audio-out", root);
-          out.innerHTML = '<div class="readout empty">Convertendo…</div>';
-          var reader = new FileReader();
-          reader.onload = function () {
-            var AudioCtx = window.AudioContext || window.webkitAudioContext;
-            var ctx = new AudioCtx();
-            ctx.decodeAudioData(reader.result).then(function (buffer) {
-              var blob = audioBufferToWav(buffer);
-              var url = URL.createObjectURL(blob);
-              out.innerHTML = readoutHTML([
-                { label: "Duração", value: fmtNum(buffer.duration, 1) + " s", big: true },
-                { label: "Tamanho do WAV", value: fmtNum(blob.size / 1024 / 1024, 2) + " MB" }
-              ]) + '<a class="download-link" href="' + url + '" download="convertido.wav">⬇ Baixar áudio em WAV</a>';
-            }).catch(function () {
-              out.innerHTML = readoutHTML([], "Não foi possível decodificar este arquivo de áudio no navegador.", true);
-            });
-          };
-          reader.readAsArrayBuffer(file);
-        });
-      }
-    }
-    $all("#cm-tipo button", root).forEach(function (b) {
-      b.addEventListener("click", function () {
-        $all("#cm-tipo button", root).forEach(function (x) { x.classList.remove("active"); });
-        b.classList.add("active"); tipo = b.dataset.v; render();
-      });
-    });
-    render();
-  }
-});
-
-/* =========================================================
-   Rendering engine
-   ========================================================= */
-function buildSidebar() {
-  var nav = $("#cat-nav");
-  nav.innerHTML = CATEGORIES.map(function (cat) {
-    var count = TOOLS.filter(function (t) { return t.cat === cat.id; }).length;
-    return '<a class="cat-nav-link" href="#cat-' + cat.id + '" style="--hue:' + cat.hue + '">' +
-      '<span class="dot"></span>' + cat.name + '<span class="count">' + count + '</span></a>';
-  }).join("");
-}
-
-function buildSections() {
-  var container = $("#tool-sections");
-  container.innerHTML = CATEGORIES.map(function (cat, idx) {
-    var tools = TOOLS.filter(function (t) { return t.cat === cat.id; });
-    var cards = tools.map(function (t) {
-      return '<div class="tool-card" data-tool="' + t.id + '" style="--hue:' + cat.hue + '">' +
-        '<button class="tool-card-head" aria-expanded="false">' +
-        '<span class="tool-icon">' + t.icon + '</span>' +
-        '<span class="tool-card-title"><strong>' + escapeHtml(t.title) + '</strong><small>' + escapeHtml(t.subtitle) + '</small></span>' +
-        '<svg class="tool-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-        '</button>' +
-        '<div class="tool-card-body"><div class="tool-card-body-inner" data-mount="' + t.id + '"></div></div>' +
-        '</div>';
-    }).join("");
-    return '<section class="cat-section" id="cat-' + cat.id + '" style="--hue:' + cat.hue + '">' +
-      '<div class="cat-heading"><span class="cat-index">' + String(idx + 1).padStart(2, "0") + '</span><h2>' + escapeHtml(cat.name) + '</h2></div>' +
-      '<p class="cat-desc">' + escapeHtml(cat.desc) + '</p>' +
-      '<div class="tool-grid">' + cards + '</div>' +
-      '</section>';
-  }).join("");
-
-  // Accordion behaviour with lazy mount
-  var mounted = {};
-  $all(".tool-card").forEach(function (card) {
-    var head = $(".tool-card-head", card);
-    head.addEventListener("click", function () {
-      var toolId = card.dataset.tool;
-      var isOpen = card.classList.contains("open");
-      // close others in the same category grid for a tidier layout (optional: allow multiple open)
-      card.classList.toggle("open", !isOpen);
-      head.setAttribute("aria-expanded", String(!isOpen));
-      if (!isOpen && !mounted[toolId]) {
-        var tool = TOOLS.find(function (t) { return t.id === toolId; });
-        var mountEl = $('[data-mount="' + toolId + '"]', card);
-        try { tool.mount(mountEl); } catch (e) { mountEl.innerHTML = '<div class="readout empty">Não foi possível carregar esta ferramenta.</div>'; console.error(e); }
-        mounted[toolId] = true;
-      }
-    });
-  });
-}
-
-/* ---- Search ---- */
-function setupSearch() {
-  var input = $("#tool-search");
-  input.addEventListener("input", function () {
-    var q = input.value.toLowerCase().trim();
-    var anyVisible = false;
-    $all(".cat-section").forEach(function (section) {
-      var visibleInSection = 0;
-      $all(".tool-card", section).forEach(function (card) {
-        var text = card.textContent.toLowerCase();
-        var show = !q || text.indexOf(q) !== -1;
-        card.style.display = show ? "" : "none";
-        if (show) visibleInSection++;
-      });
-      section.style.display = visibleInSection > 0 ? "" : "none";
-      if (visibleInSection > 0) anyVisible = true;
-    });
-    var msg = $("#no-results-msg");
-    if (!anyVisible) {
-      if (!msg) {
-        msg = document.createElement("p");
-        msg.id = "no-results-msg";
-        msg.className = "empty-search-msg";
-        msg.textContent = "Nenhuma ferramenta encontrada para essa busca.";
-        $("#tool-sections").appendChild(msg);
-      }
-    } else if (msg) {
-      msg.remove();
-    }
-  });
-}
-
-/* ---- Mobile sidebar ---- */
-function setupSidebarToggle() {
-  var sidebar = $("#sidebar"), toggle = $("#sidebar-toggle"), backdrop = $("#sidebar-backdrop");
-  function close() { sidebar.classList.remove("open"); backdrop.classList.remove("show"); toggle.setAttribute("aria-expanded", "false"); }
-  function open() { sidebar.classList.add("open"); backdrop.classList.add("show"); toggle.setAttribute("aria-expanded", "true"); }
-  toggle.addEventListener("click", function () { sidebar.classList.contains("open") ? close() : open(); });
-  backdrop.addEventListener("click", close);
-  $all(".cat-nav-link", sidebar).forEach(function (link) { link.addEventListener("click", close); });
-}
-
-/* =========================================================
-   Init
-   ========================================================= */
-document.addEventListener("DOMContentLoaded", function () {
-  buildSidebar();
-  buildSections();
-  setupSearch();
-  setupSidebarToggle();
-});
-
-</script>
-</body>
-</html>
+      var kwhMes = (p * h * d) / 1000, custoMes = kwhMe
