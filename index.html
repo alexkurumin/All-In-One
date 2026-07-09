@@ -2145,4 +2145,833 @@ TOOLS.push({
       var p = toNum($("#ce-pot", root).value), h = toNum($("#ce-horas", root).value), d = toNum($("#ce-dias", root).value), t = toNum($("#ce-tarifa", root).value);
       var out = $("#ce-out", root);
       if (!p || !h || !d || !t) { out.innerHTML = readoutHTML(); return; }
-      var kwhMes = (p * h * d) / 1000, custoMes = kwhMe
+      var kwhMes = (p * h * d) / 1000, custoMes = kwhMes * t;
+      out.innerHTML = readoutHTML([
+        { label: "Custo mensal", value: fmtBRL(custoMes), big: true },
+        { label: "Consumo mensal", value: fmtNum(kwhMes, 1) + " kWh" },
+        { label: "Custo anual estimado", value: fmtBRL(custoMes * 12), muted: true }
+      ]);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "material-obra", cat: "casa", icon: "🧱", title: "Quantidade de Tinta e Materiais",
+  subtitle: "Tinta, piso e tijolos para sua obra ou reforma",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="mo-tipo"><button class="active" data-v="tinta">Tinta</button><button data-v="piso">Piso</button><button data-v="tijolo">Tijolo</button></div>' +
+      '<div id="mo-body" style="margin-top:12px"></div>';
+    var tipo = "tinta";
+    function render() {
+      var body = $("#mo-body", root);
+      if (tipo === "tinta") {
+        body.innerHTML =
+          '<div class="field-row cols-3">' +
+          '<div class="field"><label>Área a pintar (m²)</label><input type="number" id="mo-area" placeholder="40"></div>' +
+          '<div class="field"><label>Demãos</label><input type="number" id="mo-demaos" value="2"></div>' +
+          '<div class="field"><label>Rendimento (m²/litro)</label><input type="number" id="mo-rend" value="6"></div>' +
+          '</div><div id="mo-out"></div>';
+        var recalc = function () {
+          var a = toNum($("#mo-area", root).value), dm = toNum($("#mo-demaos", root).value, 2), rend = toNum($("#mo-rend", root).value, 6);
+          var out = $("#mo-out", root);
+          if (!a) { out.innerHTML = readoutHTML(); return; }
+          var litros = (a * dm) / rend;
+          out.innerHTML = readoutHTML([
+            { label: "Tinta necessária", value: fmtNum(litros, 1) + " L", big: true },
+            { label: "Latas de 18 L", value: Math.ceil(litros / 18) },
+            { label: "Latas de 3,6 L", value: Math.ceil(litros / 3.6), muted: true }
+          ]);
+        };
+        body.addEventListener("input", recalc);
+      } else if (tipo === "piso") {
+        body.innerHTML =
+          '<div class="field-row cols-2">' +
+          '<div class="field"><label>Área do cômodo (m²)</label><input type="number" id="mo-area2" placeholder="20"></div>' +
+          '<div class="field"><label>Perda / quebra (%)</label><input type="number" id="mo-perda" value="10"></div>' +
+          '</div><div id="mo-out"></div>';
+        var recalc2 = function () {
+          var a = toNum($("#mo-area2", root).value), perda = toNum($("#mo-perda", root).value, 10);
+          var out = $("#mo-out", root);
+          if (!a) { out.innerHTML = readoutHTML(); return; }
+          out.innerHTML = readoutHTML([{ label: "Comprar", value: fmtNum(a * (1 + perda / 100), 2) + " m²", big: true }]);
+        };
+        body.addEventListener("input", recalc2);
+      } else {
+        body.innerHTML =
+          '<div class="field-row cols-3">' +
+          '<div class="field"><label>Área da parede (m²)</label><input type="number" id="mo-parede" placeholder="30"></div>' +
+          '<div class="field"><label>Tipo</label><select id="mo-tipotijolo"><option value="25">Tijolo comum (6 furos) — 25/m²</option><option value="27">Tijolo baiano (8 furos) — 27/m²</option><option value="12.5">Bloco de concreto — 12,5/m²</option></select></div>' +
+          '<div class="field"><label>Perda (%)</label><input type="number" id="mo-perda2" value="10"></div>' +
+          '</div><div id="mo-out"></div>';
+        var recalc3 = function () {
+          var a = toNum($("#mo-parede", root).value), unMetro = toNum($("#mo-tipotijolo", root).value), perda = toNum($("#mo-perda2", root).value, 10);
+          var out = $("#mo-out", root);
+          if (!a) { out.innerHTML = readoutHTML(); return; }
+          var qtd = Math.ceil(a * unMetro * (1 + perda / 100));
+          out.innerHTML = readoutHTML([{ label: "Unidades necessárias", value: qtd, big: true }]);
+        };
+        body.addEventListener("input", recalc3);
+      }
+    }
+    $all("#mo-tipo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#mo-tipo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); tipo = b.dataset.v; render();
+      });
+    });
+    render();
+  }
+});
+
+TOOLS.push({
+  id: "ar-condicionado", cat: "casa", icon: "❄", title: "Dimensionamento de Ar-Condicionado",
+  subtitle: "BTUs recomendados para o ambiente",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>Área do ambiente (m²)</label><input type="number" id="ac-area" placeholder="18"></div>' +
+      '<div class="field"><label>Pessoas no ambiente</label><input type="number" id="ac-pessoas" value="2"></div>' +
+      '<div class="field"><label>Insolação</label><select id="ac-sol"><option value="0">Pouco sol / sombra</option><option value="1" selected>Sol moderado</option><option value="2">Muito sol (oeste/norte)</option></select></div>' +
+      '</div><div id="ac-out"></div>';
+    var CAPACIDADES = [7000, 9000, 12000, 18000, 21000, 24000, 30000, 36000, 48000, 60000];
+    function calc() {
+      var area = toNum($("#ac-area", root).value), pessoas = toNum($("#ac-pessoas", root).value, 2), sol = toNum($("#ac-sol", root).value, 1);
+      var out = $("#ac-out", root);
+      if (!area) { out.innerHTML = readoutHTML(); return; }
+      var btu = area * 600;
+      if (sol === 2) btu *= 1.15; else if (sol === 0) btu *= 0.9;
+      if (pessoas > 2) btu += (pessoas - 2) * 600;
+      var sugerido = CAPACIDADES.find(function (c) { return c >= btu; }) || CAPACIDADES[CAPACIDADES.length - 1];
+      out.innerHTML = readoutHTML([
+        { label: "Capacidade sugerida", value: fmtNum(sugerido, 0) + " BTUs", big: true },
+        { label: "Cálculo bruto", value: fmtNum(btu, 0) + " BTUs", muted: true }
+      ], "Estimativa geral (600 BTU/m²) — ambientes com muitos equipamentos eletrônicos podem exigir capacidade maior.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+/* ---------- 8. FINANÇAS AVANÇADAS E NEGÓCIOS ---------- */
+TOOLS.push({
+  id: "markup", cat: "negocios", icon: "🏷", title: "Preço de Venda (Markup)",
+  subtitle: "Preço ideal considerando custos e margem desejada",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>Custo do produto (R$)</label><input type="number" id="mk-custo" placeholder="50"></div>' +
+      '<div class="field"><label>Despesas fixas + variáveis (%)</label><input type="number" id="mk-desp" placeholder="20"></div>' +
+      '<div class="field"><label>Margem de lucro desejada (%)</label><input type="number" id="mk-margem" placeholder="15"></div>' +
+      '</div><div id="mk-out"></div>';
+    function calc() {
+      var custo = toNum($("#mk-custo", root).value), desp = toNum($("#mk-desp", root).value, 0) / 100, margem = toNum($("#mk-margem", root).value, 0) / 100;
+      var out = $("#mk-out", root);
+      var divisor = 1 - desp - margem;
+      if (!custo || divisor <= 0) { out.innerHTML = readoutHTML([], divisor <= 0 ? "A soma de despesas + margem não pode ser 100% ou mais." : "", divisor <= 0); return; }
+      var preco = custo / divisor;
+      out.innerHTML = readoutHTML([
+        { label: "Preço de venda sugerido", value: fmtBRL(preco), big: true },
+        { label: "Markup multiplicador", value: fmtNum(preco / custo, 2) + "x" },
+        { label: "Lucro líquido por unidade", value: fmtBRL(preco * margem) }
+      ]);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "antecipacao", cat: "negocios", icon: "⏩", title: "Antecipação de Recebíveis",
+  subtitle: "Valor líquido ao antecipar parcelas de cartão",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>Valor a receber (R$)</label><input type="number" id="an-valor" placeholder="10000"></div>' +
+      '<div class="field"><label>Taxa de desconto (% ao mês)</label><input type="number" id="an-taxa" placeholder="2.5" step="0.01"></div>' +
+      '<div class="field"><label>Dias de antecipação</label><input type="number" id="an-dias" placeholder="30"></div>' +
+      '</div><div id="an-out"></div>';
+    function calc() {
+      var v = toNum($("#an-valor", root).value), taxaMes = toNum($("#an-taxa", root).value) / 100, dias = toNum($("#an-dias", root).value);
+      var out = $("#an-out", root);
+      if (!v || isNaN(taxaMes) || !dias) { out.innerHTML = readoutHTML(); return; }
+      var taxaDia = taxaMes / 30, desconto = v * taxaDia * dias, liquido = v - desconto;
+      out.innerHTML = readoutHTML([
+        { label: "Valor líquido recebido", value: fmtBRL(liquido), big: true },
+        { label: "Desconto total", value: fmtBRL(desconto) },
+        { label: "Taxa efetiva no período", value: fmtNum(taxaDia * dias * 100, 2) + "%", muted: true }
+      ]);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "breakeven", cat: "negocios", icon: "⚖", title: "Ponto de Equilíbrio (Break-Even)",
+  subtitle: "Quantas unidades vender para empatar as contas",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>Custos fixos mensais (R$)</label><input type="number" id="be-fixo" placeholder="8000"></div>' +
+      '<div class="field"><label>Preço de venda unitário (R$)</label><input type="number" id="be-preco" placeholder="50"></div>' +
+      '<div class="field"><label>Custo variável unitário (R$)</label><input type="number" id="be-var" placeholder="30"></div>' +
+      '</div><div id="be-out"></div>';
+    function calc() {
+      var fixo = toNum($("#be-fixo", root).value), preco = toNum($("#be-preco", root).value), varUnit = toNum($("#be-var", root).value);
+      var out = $("#be-out", root);
+      var margemContrib = preco - varUnit;
+      if (!fixo || !preco || isNaN(varUnit) || margemContrib <= 0) { out.innerHTML = readoutHTML([], margemContrib <= 0 && preco ? "O preço de venda deve ser maior que o custo variável." : "", margemContrib <= 0); return; }
+      var unidades = fixo / margemContrib;
+      out.innerHTML = readoutHTML([
+        { label: "Ponto de equilíbrio", value: Math.ceil(unidades) + " unidades/mês", big: true },
+        { label: "Em faturamento", value: fmtBRL(unidades * preco) },
+        { label: "Margem de contribuição unitária", value: fmtBRL(margemContrib), muted: true }
+      ]);
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+TOOLS.push({
+  id: "valuation", cat: "negocios", icon: "📈", title: "Valuation Simplificado",
+  subtitle: "Estimativa de valor por múltiplo de faturamento/EBITDA ou fluxo de caixa (Gordon)",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="val-tipo"><button class="active" data-v="multiplo">Múltiplo</button><button data-v="gordon">Fluxo de caixa (Gordon)</button></div>' +
+      '<div id="val-body" style="margin-top:12px"></div>';
+    var tipo = "multiplo";
+    function render() {
+      var body = $("#val-body", root);
+      if (tipo === "multiplo") {
+        body.innerHTML =
+          '<div class="field-row cols-2">' +
+          '<div class="field"><label>Faturamento ou EBITDA anual (R$)</label><input type="number" id="val-base" placeholder="500000"></div>' +
+          '<div class="field"><label>Múltiplo do setor</label><input type="number" id="val-mult" placeholder="3" step="0.1"></div>' +
+          '</div><div id="val-out"></div>';
+        body.addEventListener("input", function () {
+          var base = toNum($("#val-base", root).value), mult = toNum($("#val-mult", root).value);
+          var out = $("#val-out", root);
+          if (!base || !mult) { out.innerHTML = readoutHTML(); return; }
+          out.innerHTML = readoutHTML([{ label: "Valor estimado da empresa", value: fmtBRL(base * mult), big: true }], "Método rápido de mercado — múltiplos variam bastante por setor e porte.");
+        });
+      } else {
+        body.innerHTML =
+          '<div class="field-row cols-3">' +
+          '<div class="field"><label>Fluxo de caixa anual (R$)</label><input type="number" id="val-fc" placeholder="100000"></div>' +
+          '<div class="field"><label>Taxa de desconto (%)</label><input type="number" id="val-desc" placeholder="15" step="0.1"></div>' +
+          '<div class="field"><label>Crescimento perpétuo (%)</label><input type="number" id="val-cresc" placeholder="3" step="0.1"></div>' +
+          '</div><div id="val-out"></div>';
+        body.addEventListener("input", function () {
+          var fc = toNum($("#val-fc", root).value), desc = toNum($("#val-desc", root).value) / 100, cresc = toNum($("#val-cresc", root).value) / 100;
+          var out = $("#val-out", root);
+          if (!fc || isNaN(desc) || desc <= cresc) { out.innerHTML = readoutHTML([], desc <= cresc ? "A taxa de desconto deve ser maior que o crescimento." : "", desc <= cresc); return; }
+          out.innerHTML = readoutHTML([{ label: "Valor presente (perpetuidade de Gordon)", value: fmtBRL(fc / (desc - cresc)), big: true }], "VP = Fluxo de caixa ÷ (taxa de desconto − crescimento).");
+        });
+      }
+    }
+    $all("#val-tipo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#val-tipo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); tipo = b.dataset.v; render();
+      });
+    });
+    render();
+  }
+});
+
+/* ---------- 9. COZINHA E GASTRONOMIA ---------- */
+TOOLS.push({
+  id: "medidas-culinarias", cat: "cozinha", icon: "🥄", title: "Conversor de Medidas Culinárias",
+  subtitle: "Xícaras, colheres, gramas e mililitros por ingrediente",
+  mount: function (root) {
+    var ingOpts = Object.keys(CULINARY_DENSITY).map(function (k) { return '<option value="' + k + '">' + k + '</option>'; }).join("");
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>Ingrediente</label><select id="mc-ing">' + ingOpts + '</select></div>' +
+      '<div class="field"><label>Medida</label><select id="mc-medida"><option value="xicara">Xícara (US)</option><option value="colhersopa">Colher de sopa</option><option value="colherche">Colher de chá</option><option value="grama">Gramas</option><option value="ml">Mililitros</option></select></div>' +
+      '<div class="field"><label>Quantidade</label><input type="number" id="mc-qtd" value="1" step="0.1"></div>' +
+      '</div><div id="mc-out"></div>';
+    function calc() {
+      var ing = $("#mc-ing", root).value, medida = $("#mc-medida", root).value, qtd = toNum($("#mc-qtd", root).value, 1);
+      var gPorXicara = CULINARY_DENSITY[ing];
+      var out = $("#mc-out", root);
+      var gramas;
+      if (medida === "xicara") gramas = qtd * gPorXicara;
+      else if (medida === "colhersopa") gramas = qtd * (gPorXicara / CUP_TO_TBSP);
+      else if (medida === "colherche") gramas = qtd * (gPorXicara / CUP_TO_TSP);
+      else if (medida === "grama") gramas = qtd;
+      else gramas = qtd * (gPorXicara / CUP_TO_ML);
+      var ml = medida === "ml" ? qtd : (gramas / gPorXicara) * CUP_TO_ML;
+      out.innerHTML = readoutHTML([
+        { label: "Em gramas", value: fmtNum(gramas, 1) + " g", big: true },
+        { label: "Em mililitros (aprox.)", value: fmtNum(ml, 1) + " ml" },
+        { label: "Xícaras (US)", value: fmtNum(gramas / gPorXicara, 3), muted: true }
+      ], "Densidades aproximadas — variam conforme peneiração/compactação do ingrediente.");
+    }
+    root.addEventListener("input", calc);
+    calc();
+  }
+});
+
+TOOLS.push({
+  id: "churrasco", cat: "cozinha", icon: "🍖", title: "Calculadora de Churrasco / Festa",
+  subtitle: "Carne, bebida e carvão por número de convidados",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>Homens</label><input type="number" id="ch-homens" value="0" min="0"></div>' +
+      '<div class="field"><label>Mulheres</label><input type="number" id="ch-mulheres" value="0" min="0"></div>' +
+      '<div class="field"><label>Crianças</label><input type="number" id="ch-criancas" value="0" min="0"></div>' +
+      '</div><div id="ch-out"></div>';
+    function calc() {
+      var h = toNum($("#ch-homens", root).value, 0), m = toNum($("#ch-mulheres", root).value, 0), c = toNum($("#ch-criancas", root).value, 0);
+      var out = $("#ch-out", root);
+      if (h + m + c === 0) { out.innerHTML = readoutHTML(); return; }
+      var carneKg = (h * 0.4) + (m * 0.3) + (c * 0.15);
+      var bebidaL = (h + m) * 1.0 + c * 0.5;
+      var carvaoKg = carneKg * 0.5;
+      out.innerHTML = readoutHTML([
+        { label: "Carne total", value: fmtNum(carneKg, 1) + " kg", big: true },
+        { label: "Bebidas (total)", value: fmtNum(bebidaL, 1) + " L" },
+        { label: "Carvão", value: fmtNum(carvaoKg, 1) + " kg" },
+        { label: "Convidados", value: h + m + c, muted: true }
+      ], "Estimativas médias (400 g/homem, 300 g/mulher, 150 g/criança) — ajuste conforme o perfil do grupo.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+/* ---------- 10. VIAGENS E LOGÍSTICA ---------- */
+TOOLS.push({
+  id: "fuso-horario", cat: "viagem", icon: "🕒", title: "Calculadora de Fuso Horário",
+  subtitle: "Hora atual em duas cidades e diferença entre elas",
+  mount: function (root) {
+    var opts = TZ_CITIES.map(function (c) { return '<option value="' + c[1] + '">' + c[0] + '</option>'; }).join("");
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Cidade A</label><select id="tz-a">' + opts + '</select></div>' +
+      '<div class="field"><label>Cidade B</label><select id="tz-b">' + opts + '</select></div>' +
+      '</div><div id="tz-out"></div>';
+    $("#tz-b", root).selectedIndex = 4;
+    function offsetFor(tz) {
+      var now = new Date();
+      var fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour12: false, hour: "2-digit", minute: "2-digit" });
+      return fmt.format(now);
+    }
+    function offsetMinutes(tz) {
+      var now = new Date();
+      var dtf = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+      var parts = dtf.formatToParts(now).reduce(function (a, p) { a[p.type] = p.value; return a; }, {});
+      var asUTC = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+      return (asUTC - now.getTime()) / 60000;
+    }
+    function calc() {
+      var a = $("#tz-a", root).value, b = $("#tz-b", root).value;
+      var out = $("#tz-out", root);
+      var diffMin = offsetMinutes(b) - offsetMinutes(a);
+      var diffH = diffMin / 60;
+      out.innerHTML = readoutHTML([
+        { label: "Hora agora em A", value: offsetFor(a), big: true },
+        { label: "Hora agora em B", value: offsetFor(b), big: true },
+        { label: "Diferença (B em relação a A)", value: (diffH >= 0 ? "+" : "") + fmtNum(diffH, 1) + "h", muted: true }
+      ]);
+    }
+    root.addEventListener("change", calc);
+    calc();
+    setInterval(calc, 30000);
+  }
+});
+
+TOOLS.push({
+  id: "custo-viagem", cat: "viagem", icon: "🚗", title: "Custo de Viagem (Combustível + Pedágio)",
+  subtitle: "Estimativa manual de gasto total de uma viagem de carro",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-3">' +
+      '<div class="field"><label>Distância (km)</label><input type="number" id="cv-dist" placeholder="450"></div>' +
+      '<div class="field"><label>Consumo (km/L)</label><input type="number" id="cv-consumo" placeholder="12" step="0.1"></div>' +
+      '<div class="field"><label>Preço combustível (R$/L)</label><input type="number" id="cv-preco" placeholder="5.80" step="0.01"></div>' +
+      '</div><div class="field-row cols-2">' +
+      '<div class="field"><label>Total em pedágios (R$)</label><input type="number" id="cv-pedagio" placeholder="45"></div>' +
+      '<div class="field"><label>Nº de pessoas dividindo</label><input type="number" id="cv-pessoas" value="1" min="1"></div>' +
+      '</div><div id="cv-out"></div>';
+    function calc() {
+      var d = toNum($("#cv-dist", root).value), cons = toNum($("#cv-consumo", root).value), preco = toNum($("#cv-preco", root).value);
+      var pedagio = toNum($("#cv-pedagio", root).value, 0), pessoas = toNum($("#cv-pessoas", root).value, 1) || 1;
+      var out = $("#cv-out", root);
+      if (!d || !cons || !preco) { out.innerHTML = readoutHTML(); return; }
+      var litros = d / cons, custoComb = litros * preco, total = custoComb + pedagio;
+      out.innerHTML = readoutHTML([
+        { label: "Custo total da viagem", value: fmtBRL(total), big: true },
+        { label: "Combustível", value: fmtBRL(custoComb) + " (" + fmtNum(litros, 1) + " L)" },
+        { label: "Pedágios", value: fmtBRL(pedagio) },
+        { label: "Por pessoa", value: fmtBRL(total / pessoas), muted: true }
+      ], "Rota e pedágios inseridos manualmente — este site não tem acesso a mapas/roteirização em tempo real.");
+    }
+    root.addEventListener("input", calc);
+  }
+});
+
+/* ---------- 11. DESIGN E ÁUDIO ---------- */
+TOOLS.push({
+  id: "contraste", cat: "design", icon: "◐", title: "Contraste de Cores (WCAG)",
+  subtitle: "Verifica acessibilidade de texto sobre fundo",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Cor do texto</label>' +
+      '<div class="color-picker-big"><input type="color" id="wc-texto-picker" value="#ffffff"></div>' +
+      '<input type="text" id="wc-texto" class="hex-mini" value="#ffffff" spellcheck="false" aria-label="Código hexadecimal da cor do texto"></div>' +
+      '<div class="field"><label>Cor do fundo</label>' +
+      '<div class="color-picker-big"><input type="color" id="wc-fundo-picker" value="#111111"></div>' +
+      '<input type="text" id="wc-fundo" class="hex-mini" value="#111111" spellcheck="false" aria-label="Código hexadecimal da cor do fundo"></div>' +
+      '</div>' +
+      '<div class="btn-row"><button class="btn" id="wc-swap" type="button">⇅ Inverter texto/fundo</button></div>' +
+      '<div id="wc-preview" class="swatch-preview">Texto de exemplo Aa</div><div id="wc-out"></div>';
+    var texto = $("#wc-texto", root), fundo = $("#wc-fundo", root), tp = $("#wc-texto-picker", root), fp = $("#wc-fundo-picker", root), preview = $("#wc-preview", root);
+    function sync() { texto.value = tp.value; fundo.value = fp.value; calc(); }
+    tp.addEventListener("input", sync); fp.addEventListener("input", sync);
+    $("#wc-swap", root).addEventListener("click", function () {
+      var t = tp.value; tp.value = fp.value; fp.value = t;
+      sync();
+    });
+    function calc() {
+      var t = texto.value, f = fundo.value;
+      var out = $("#wc-out", root);
+      if (!/^#[0-9a-fA-F]{3,6}$/.test(t) || !/^#[0-9a-fA-F]{3,6}$/.test(f)) { out.innerHTML = readoutHTML(); return; }
+      function toLongHex(h) { h = h.replace("#", ""); if (h.length === 3) h = h.split("").map(function (x) { return x + x; }).join(""); return "#" + h; }
+      tp.value = toLongHex(t); fp.value = toLongHex(f);
+      preview.style.color = t; preview.style.background = f;
+      var ratio = contrastRatio(t, f);
+      function pass(min) { return ratio >= min ? "Aprovado ✓" : "Reprovado ✗"; }
+      out.innerHTML = readoutHTML([
+        { label: "Razão de contraste", value: fmtNum(ratio, 2) + ":1", big: true },
+        { label: "AA — texto normal (mín. 4.5)", value: pass(4.5) },
+        { label: "AA — texto grande (mín. 3.0)", value: pass(3) },
+        { label: "AAA — texto normal (mín. 7.0)", value: pass(7) },
+        { label: "AAA — texto grande (mín. 4.5)", value: pass(4.5), muted: true }
+      ]);
+    }
+    texto.addEventListener("input", calc); fundo.addEventListener("input", calc);
+    calc();
+  }
+});
+
+TOOLS.push({
+  id: "conversor-midia", cat: "design", icon: "🎧", title: "Conversor de Arquivos de Mídia",
+  subtitle: "Imagens (PNG/JPG/WebP) e áudio para WAV, direto no navegador",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="pill-toggle" id="cm-tipo"><button class="active" data-v="imagem">Imagem</button><button data-v="audio">Áudio</button></div>' +
+      '<div id="cm-body" style="margin-top:12px"></div>';
+    var tipo = "imagem";
+    function render() {
+      var body = $("#cm-body", root);
+      if (tipo === "imagem") {
+        body.innerHTML =
+          '<label class="file-drop">Clique para escolher uma imagem (PNG, JPG ou WebP)<input type="file" id="cm-img-file" accept="image/*"></label>' +
+          '<div class="field" style="margin-top:12px"><label>Formato de saída</label><select id="cm-img-formato"><option value="image/png">PNG</option><option value="image/jpeg">JPG</option><option value="image/webp">WebP</option></select></div>' +
+          '<div id="cm-img-out"></div>';
+        $("#cm-img-file", root).addEventListener("change", function (e) {
+          var file = e.target.files[0];
+          if (!file) return;
+          var img = new Image();
+          img.onload = function () {
+            var canvas = document.createElement("canvas");
+            canvas.width = img.width; canvas.height = img.height;
+            canvas.getContext("2d").drawImage(img, 0, 0);
+            var mime = $("#cm-img-formato", root).value;
+            canvas.toBlob(function (blob) {
+              var url = URL.createObjectURL(blob);
+              var ext = mime.split("/")[1];
+              $("#cm-img-out", root).innerHTML = readoutHTML([{ label: "Tamanho gerado", value: fmtNum(blob.size / 1024, 1) + " KB", big: true }]) +
+                '<a class="download-link" href="' + url + '" download="convertido.' + ext + '">⬇ Baixar imagem convertida</a>';
+            }, mime, 0.92);
+          };
+          img.src = URL.createObjectURL(file);
+        });
+      } else {
+        body.innerHTML =
+          '<label class="file-drop">Clique para escolher um arquivo de áudio (MP3, OGG, M4A...)<input type="file" id="cm-audio-file" accept="audio/*"></label>' +
+          '<div id="cm-audio-out"></div>';
+        $("#cm-audio-file", root).addEventListener("change", function (e) {
+          var file = e.target.files[0];
+          if (!file) return;
+          var out = $("#cm-audio-out", root);
+          out.innerHTML = '<div class="readout empty">Convertendo…</div>';
+          var reader = new FileReader();
+          reader.onload = function () {
+            var AudioCtx = window.AudioContext || window.webkitAudioContext;
+            var ctx = new AudioCtx();
+            ctx.decodeAudioData(reader.result).then(function (buffer) {
+              var blob = audioBufferToWav(buffer);
+              var url = URL.createObjectURL(blob);
+              out.innerHTML = readoutHTML([
+                { label: "Duração", value: fmtNum(buffer.duration, 1) + " s", big: true },
+                { label: "Tamanho do WAV", value: fmtNum(blob.size / 1024 / 1024, 2) + " MB" }
+              ]) + '<a class="download-link" href="' + url + '" download="convertido.wav">⬇ Baixar áudio em WAV</a>';
+            }).catch(function () {
+              out.innerHTML = readoutHTML([], "Não foi possível decodificar este arquivo de áudio no navegador.", true);
+            });
+          };
+          reader.readAsArrayBuffer(file);
+        });
+      }
+    }
+    $all("#cm-tipo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#cm-tipo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); tipo = b.dataset.v; render();
+      });
+    });
+    render();
+  }
+});
+
+/* ---------- 12. MAPA E TRÂNSITO ---------- */
+function osrmProfileLabel(p) { return { walking: "a pé", cycling: "de bicicleta", driving: "de carro" }[p] || p; }
+function fmtDuration(totalMin) {
+  var totalSec = Math.round(totalMin * 60);
+  var h = Math.floor(totalSec / 3600), m = Math.floor((totalSec % 3600) / 60), s = totalSec % 60;
+  return (h > 0 ? h + "h " : "") + m + "min " + (s < 10 ? "0" : "") + s + "s";
+}
+function geocodeAddress(q) {
+  return fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q))
+    .then(function (r) { return r.json(); })
+    .then(function (arr) {
+      if (!arr || !arr.length) throw new Error("Endereço não encontrado");
+      return { lat: parseFloat(arr[0].lat), lon: parseFloat(arr[0].lon), label: arr[0].display_name };
+    });
+}
+function osrmRoute(profile, a, b) {
+  var url = "https://router.project-osrm.org/route/v1/" + profile + "/" + a.lon + "," + a.lat + ";" + b.lon + "," + b.lat + "?overview=full&geometries=geojson";
+  return fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.routes || !d.routes.length) throw new Error("Sem rota disponível");
+    return d.routes[0];
+  });
+}
+
+TOOLS.push({
+  id: "rota-tempo", cat: "mapa", icon: "📍", title: "Tempo e Rota por Transporte",
+  subtitle: "Distância e tempo estimado a pé, de bicicleta ou de carro",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Origem</label><input type="text" id="rt-origem" placeholder="Ex: Praça do Derby, Recife"></div>' +
+      '<div class="field"><label>Destino</label><input type="text" id="rt-destino" placeholder="Ex: Marco Zero, Recife"></div>' +
+      '</div>' +
+      '<div class="pill-toggle" id="rt-modo"><button class="active" data-v="walking">A pé</button><button data-v="cycling">Bicicleta</button><button data-v="driving">Carro</button></div>' +
+      '<div class="btn-row"><button class="btn primary" id="rt-buscar">Calcular rota</button></div>' +
+      '<div id="rt-out"></div><div id="rt-map" class="map-box" hidden></div>';
+    var modo = "walking";
+    $all("#rt-modo button", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        $all("#rt-modo button", root).forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active"); modo = b.dataset.v;
+      });
+    });
+    var map = null, layer = null;
+    var mapEl = $("#rt-map", root);
+    $("#rt-buscar", root).addEventListener("click", function () {
+      var origemQ = $("#rt-origem", root).value.trim(), destinoQ = $("#rt-destino", root).value.trim();
+      var out = $("#rt-out", root);
+      if (!origemQ || !destinoQ) { out.innerHTML = readoutHTML([], "Preencha origem e destino.", true); return; }
+      out.innerHTML = '<div class="readout empty">Buscando endereços e calculando rota…</div>';
+      Promise.all([geocodeAddress(origemQ), geocodeAddress(destinoQ)])
+        .then(function (pts) {
+          return osrmRoute(modo, pts[0], pts[1]).then(function (r) { return { r: r, a: pts[0], b: pts[1] }; });
+        })
+        .then(function (res) {
+          var distKm = res.r.distance / 1000, durMin = res.r.duration / 60;
+          out.innerHTML = readoutHTML([
+            { label: "Distância", value: fmtNum(distKm, 1) + " km", big: true },
+            { label: "Tempo estimado (" + osrmProfileLabel(modo) + ")", value: fmtDuration(durMin) },
+            { label: "Origem", value: res.a.label.split(",").slice(0, 2).join(","), muted: true },
+            { label: "Destino", value: res.b.label.split(",").slice(0, 2).join(","), muted: true }
+          ], "Rota calculada via OSRM/OpenStreetMap — não considera trânsito em tempo real.");
+          mapEl.hidden = false;
+          var latlngs = res.r.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+          if (!map) {
+            map = L.map(mapEl).setView(latlngs[0], 13);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap", maxZoom: 19 }).addTo(map);
+          }
+          if (layer) map.removeLayer(layer);
+          layer = L.layerGroup([
+            L.polyline(latlngs, { color: "#c8e05a", weight: 5 }),
+            L.marker([res.a.lat, res.a.lon]),
+            L.marker([res.b.lat, res.b.lon])
+          ]).addTo(map);
+          setTimeout(function () {
+            map.invalidateSize();
+            map.fitBounds(L.polyline(latlngs).getBounds(), { padding: [24, 24] });
+          }, 60);
+        })
+        .catch(function (err) {
+          out.innerHTML = readoutHTML([], "Não foi possível calcular a rota (" + err.message + "). Tente endereços mais específicos.", true);
+        });
+    });
+  }
+});
+
+TOOLS.push({
+  id: "transito-tempo-real", cat: "mapa", icon: "🚦", title: "Trânsito e Transporte Público em Tempo Real",
+  subtitle: "Congestionamentos, acidentes, ônibus e horários",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="info-card">' +
+      '<strong>Isso exige um serviço de mapas com dados ao vivo (Google Maps, Waze, Moovit etc.), que precisa de uma chave de API paga.</strong>' +
+      '<p style="margin:8px 0 0">Sem essa integração, não é possível mostrar de forma confiável:</p>' +
+      '<ul>' +
+      '<li>Congestionamentos, acidentes ou obras em tempo real e desvios automáticos de rota;</li>' +
+      '<li>Qual ônibus/metrô pegar, preço da passagem, horário no ponto e onde descer (isso depende da base de dados de transporte público — GTFS — de cada cidade).</li>' +
+      '</ul>' +
+      '<p style="margin:10px 0 0">Para essas informações agora mesmo, use:</p>' +
+      '<ul>' +
+      '<li><a href="https://www.google.com/maps" target="_blank" rel="noopener">Google Maps</a> — trânsito ao vivo e rotas de carro/a pé/bicicleta</li>' +
+      '<li><a href="https://moovitapp.com/" target="_blank" rel="noopener">Moovit</a> — linhas de ônibus/metrô, horários e tarifas</li>' +
+      '</ul>' +
+      '<p style="margin:10px 0 0">A ferramenta <em>"Tempo e Rota por Transporte"</em> desta página já calcula distância e tempo estimado a pé, de bicicleta ou de carro (sem dados de trânsito ao vivo).</p>' +
+      '</div>';
+  }
+});
+
+TOOLS.push({
+  id: "rota-corrida", cat: "mapa", icon: "🏁", title: "Traçar Rota de Corrida",
+  subtitle: "Clique no mapa para desenhar seu treino e ver distância e tempo",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Seu pace (min/km)</label><input type="number" id="rc-pace" value="6" step="0.1"></div>' +
+      '<div class="field" style="justify-content:flex-end"><button class="btn" id="rc-limpar" type="button">Limpar pontos</button></div>' +
+      '</div>' +
+      '<div id="rc-map" class="map-box"></div>' +
+      '<p class="field-hint" style="margin-top:8px">Clique no mapa para marcar o trajeto ponto a ponto.</p>' +
+      '<div id="rc-out"></div>';
+    var mapEl = $("#rc-map", root);
+    var map, polyline, points = [];
+    function redraw() {
+      if (polyline) map.removeLayer(polyline);
+      if (points.length > 1) polyline = L.polyline(points, { color: "#c8e05a", weight: 5 }).addTo(map);
+      updateStats();
+    }
+    function updateStats() {
+      var out = $("#rc-out", root);
+      if (points.length < 2) { out.innerHTML = readoutHTML(); return; }
+      var distKm = 0;
+      for (var i = 1; i < points.length; i++) distKm += points[i - 1].distanceTo(points[i]) / 1000;
+      var pace = toNum($("#rc-pace", root).value, 6);
+      out.innerHTML = readoutHTML([
+        { label: "Distância traçada", value: fmtNum(distKm, 2) + " km", big: true },
+        { label: "Tempo estimado (pace " + fmtNum(pace, 1) + " min/km)", value: fmtDuration(distKm * pace) },
+        { label: "Pontos marcados", value: points.length, muted: true }
+      ]);
+    }
+    $("#rc-limpar", root).addEventListener("click", function () { points = []; redraw(); });
+    $("#rc-pace", root).addEventListener("input", updateStats);
+    setTimeout(function () {
+      var start = [-8.05, -34.9];
+      map = L.map(mapEl).setView(start, 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap", maxZoom: 19 }).addTo(map);
+      map.on("click", function (e) { points.push(e.latlng); redraw(); });
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          map.setView([pos.coords.latitude, pos.coords.longitude], 14);
+        }, function () {}, { timeout: 2500 });
+      }
+      map.invalidateSize();
+    }, 300);
+  }
+});
+
+/* ---------- 13. CONSULTA RÁPIDA ---------- */
+var WMO_CODES = {
+  0: "Céu limpo", 1: "Poucas nuvens", 2: "Parcialmente nublado", 3: "Nublado",
+  45: "Neblina", 48: "Neblina com geada", 51: "Garoa leve", 53: "Garoa moderada", 55: "Garoa forte",
+  61: "Chuva leve", 63: "Chuva moderada", 65: "Chuva forte", 71: "Neve leve", 73: "Neve moderada", 75: "Neve forte",
+  80: "Pancadas de chuva leves", 81: "Pancadas de chuva moderadas", 82: "Pancadas de chuva fortes",
+  95: "Trovoadas", 96: "Trovoadas com granizo"
+};
+TOOLS.push({
+  id: "previsao-tempo", cat: "consulta", icon: "⛅", title: "Previsão do Tempo",
+  subtitle: "Condições atuais e próximos 5 dias em qualquer cidade",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Cidade</label><input type="text" id="pt-cidade" placeholder="Recife"></div>' +
+      '<div class="field" style="justify-content:flex-end"><button class="btn primary" id="pt-buscar">Buscar previsão</button></div>' +
+      '</div><div id="pt-out"></div>';
+    $("#pt-buscar", root).addEventListener("click", function () {
+      var cidade = $("#pt-cidade", root).value.trim();
+      var out = $("#pt-out", root);
+      if (!cidade) { out.innerHTML = readoutHTML([], "Digite uma cidade.", true); return; }
+      out.innerHTML = '<div class="readout empty">Buscando localização…</div>';
+      fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&format=json&name=" + encodeURIComponent(cidade))
+        .then(function (r) { return r.json(); })
+        .then(function (geo) {
+          if (!geo.results || !geo.results.length) throw new Error("Cidade não encontrada");
+          var loc = geo.results[0];
+          return fetch("https://api.open-meteo.com/v1/forecast?latitude=" + loc.latitude + "&longitude=" + loc.longitude +
+            "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m" +
+            "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=5")
+            .then(function (r) { return r.json(); }).then(function (fc) { return { loc: loc, fc: fc }; });
+        })
+        .then(function (res) {
+          var c = res.fc.current, d = res.fc.daily, loc = res.loc;
+          var rows = [
+            { label: loc.name + (loc.admin1 ? ", " + loc.admin1 : ""), value: fmtNum(c.temperature_2m, 0) + "°C", big: true },
+            { label: "Sensação térmica", value: fmtNum(c.apparent_temperature, 0) + "°C" },
+            { label: "Condição", value: WMO_CODES[c.weather_code] || "—" },
+            { label: "Umidade / Vento", value: fmtNum(c.relative_humidity_2m, 0) + "% / " + fmtNum(c.wind_speed_10m, 0) + " km/h", muted: true }
+          ];
+          var tabela = '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Dia</th><th>Mín</th><th>Máx</th><th>Chuva</th></tr></thead><tbody>' +
+            d.time.map(function (t, i) {
+              var dia = new Date(t + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+              return "<tr><td>" + dia + "</td><td>" + fmtNum(d.temperature_2m_min[i], 0) + "°C</td><td>" + fmtNum(d.temperature_2m_max[i], 0) + "°C</td><td>" + fmtNum(d.precipitation_probability_max[i], 0) + "%</td></tr>";
+            }).join("") + "</tbody></table></div>";
+          out.innerHTML = readoutHTML(rows, "Fonte: Open-Meteo.") + tabela;
+        })
+        .catch(function (err) { out.innerHTML = readoutHTML([], "Não foi possível buscar a previsão (" + err.message + ").", true); });
+    });
+  }
+});
+
+TOOLS.push({
+  id: "rastreamento", cat: "consulta", icon: "📦", title: "Rastreamento de Encomendas",
+  subtitle: "Correios, Shopee, Shein e outras transportadoras",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="info-card">' +
+      '<strong>Isso exige acesso às APIs oficiais dos Correios e de cada transportadora/marketplace, a maioria paga ou restrita a contratos empresariais.</strong>' +
+      '<p style="margin:8px 0 0">Sem esse acesso, não dá para mostrar o status real do seu pacote aqui de forma confiável.</p>' +
+      '<p style="margin:10px 0 0">Para rastrear agora mesmo, use:</p>' +
+      '<ul>' +
+      '<li><a href="https://rastreamento.correios.com.br/app/index.php" target="_blank" rel="noopener">Correios</a> — objetos enviados pelos Correios</li>' +
+      '<li><a href="https://shopee.com.br/" target="_blank" rel="noopener">App/site da Shopee</a> — aba "Minhas Compras"</li>' +
+      '<li><a href="https://www.shein.com/" target="_blank" rel="noopener">App/site da Shein</a> — aba "Meus Pedidos"</li>' +
+      '</ul></div>';
+  }
+});
+
+TOOLS.push({
+  id: "consulta-placa", cat: "consulta", icon: "🚘", title: "Consulta de Placa (Multas, IPVA, Dono)",
+  subtitle: "Por que essa consulta não está disponível aqui",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="info-card">' +
+      '<strong>Dados de multas, IPVA e principalmente o nome do proprietário de um veículo são informações restritas.</strong>' +
+      '<p style="margin:8px 0 0">Consultá-los exige integração paga com o Detran/Denatran, e dados do dono são protegidos pela LGPD — não é algo que deva ficar aberto para qualquer pessoa digitar uma placa e descobrir.</p>' +
+      '<p style="margin:10px 0 0">Para consultar multas e débitos do <em>seu próprio</em> veículo, use:</p>' +
+      '<ul>' +
+      '<li><a href="https://www.gov.br/pt-br/servicos/consultar-debitos-veiculares" target="_blank" rel="noopener">gov.br — Consultar débitos veiculares</a></li>' +
+      '<li>O site do Detran do seu estado</li>' +
+      '</ul></div>';
+  }
+});
+
+/* =========================================================
+   Rendering engine
+   ========================================================= */
+function buildSidebar() {
+  var nav = $("#cat-nav");
+  nav.innerHTML = CATEGORIES.map(function (cat) {
+    var count = TOOLS.filter(function (t) { return t.cat === cat.id; }).length;
+    return '<a class="cat-nav-link" href="#cat-' + cat.id + '" style="--hue:' + cat.hue + '">' +
+      '<span class="dot"></span>' + cat.name + '<span class="count">' + count + '</span></a>';
+  }).join("");
+}
+
+function buildSections() {
+  var container = $("#tool-sections");
+  container.innerHTML = CATEGORIES.map(function (cat, idx) {
+    var tools = TOOLS.filter(function (t) { return t.cat === cat.id; });
+    var cards = tools.map(function (t) {
+      return '<div class="tool-card" data-tool="' + t.id + '" style="--hue:' + cat.hue + '">' +
+        '<button class="tool-card-head" aria-expanded="false">' +
+        '<span class="tool-icon">' + t.icon + '</span>' +
+        '<span class="tool-card-title"><strong>' + escapeHtml(t.title) + '</strong><small>' + escapeHtml(t.subtitle) + '</small></span>' +
+        '<svg class="tool-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '</button>' +
+        '<div class="tool-card-body"><div class="tool-card-body-inner" data-mount="' + t.id + '"></div></div>' +
+        '</div>';
+    }).join("");
+    return '<section class="cat-section" id="cat-' + cat.id + '" style="--hue:' + cat.hue + '">' +
+      '<div class="cat-heading"><span class="cat-index">' + String(idx + 1).padStart(2, "0") + '</span><h2>' + escapeHtml(cat.name) + '</h2></div>' +
+      '<p class="cat-desc">' + escapeHtml(cat.desc) + '</p>' +
+      '<div class="tool-grid">' + cards + '</div>' +
+      '</section>';
+  }).join("");
+
+  // Accordion behaviour with lazy mount
+  var mounted = {};
+  $all(".tool-card").forEach(function (card) {
+    var head = $(".tool-card-head", card);
+    head.addEventListener("click", function () {
+      var toolId = card.dataset.tool;
+      var isOpen = card.classList.contains("open");
+      // close others in the same category grid for a tidier layout (optional: allow multiple open)
+      card.classList.toggle("open", !isOpen);
+      head.setAttribute("aria-expanded", String(!isOpen));
+      if (!isOpen && !mounted[toolId]) {
+        var tool = TOOLS.find(function (t) { return t.id === toolId; });
+        var mountEl = $('[data-mount="' + toolId + '"]', card);
+        try { tool.mount(mountEl); } catch (e) { mountEl.innerHTML = '<div class="readout empty">Não foi possível carregar esta ferramenta.</div>'; console.error(e); }
+        mounted[toolId] = true;
+      }
+    });
+  });
+}
+
+/* ---- Search ---- */
+function setupSearch() {
+  var input = $("#tool-search");
+  input.addEventListener("input", function () {
+    var q = input.value.toLowerCase().trim();
+    var anyVisible = false;
+    $all(".cat-section").forEach(function (section) {
+      var visibleInSection = 0;
+      $all(".tool-card", section).forEach(function (card) {
+        var text = card.textContent.toLowerCase();
+        var show = !q || text.indexOf(q) !== -1;
+        card.style.display = show ? "" : "none";
+        if (show) visibleInSection++;
+      });
+      section.style.display = visibleInSection > 0 ? "" : "none";
+      if (visibleInSection > 0) anyVisible = true;
+    });
+    var msg = $("#no-results-msg");
+    if (!anyVisible) {
+      if (!msg) {
+        msg = document.createElement("p");
+        msg.id = "no-results-msg";
+        msg.className = "empty-search-msg";
+        msg.textContent = "Nenhuma ferramenta encontrada para essa busca.";
+        $("#tool-sections").appendChild(msg);
+      }
+    } else if (msg) {
+      msg.remove();
+    }
+  });
+}
+
+/* ---- Mobile sidebar ---- */
+function setupSidebarToggle() {
+  var sidebar = $("#sidebar"), toggle = $("#sidebar-toggle"), backdrop = $("#sidebar-backdrop");
+  function close() { sidebar.classList.remove("open"); backdrop.classList.remove("show"); toggle.setAttribute("aria-expanded", "false"); }
+  function open() { sidebar.classList.add("open"); backdrop.classList.add("show"); toggle.setAttribute("aria-expanded", "true"); }
+  toggle.addEventListener("click", function () { sidebar.classList.contains("open") ? close() : open(); });
+  backdrop.addEventListener("click", close);
+  $all(".cat-nav-link", sidebar).forEach(function (link) { link.addEventListener("click", close); });
+}
+
+/* =========================================================
+   Init
+   ========================================================= */
+document.addEventListener("DOMContentLoaded", function () {
+  buildSidebar();
+  buildSections();
+  setupSearch();
+  setupSidebarToggle();
+});
+
+</script>
+</body>
+</html>
