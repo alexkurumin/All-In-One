@@ -432,6 +432,7 @@ h1,h2,h3{ font-family: var(--font-display); margin: 0; }
 }
 .readout-note.warn{ color: hsl(45 90% 65%); }
 .readout.empty{ color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+.readout.empty.warn-text{ color: hsl(45 90% 65%); }
 
 /* simple data table used inside some tools (financing schedule etc) */
 .data-table-wrap{ max-height: 220px; overflow-y: auto; margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
@@ -548,6 +549,11 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
   font-size: 0.78rem;
   border-top: 1px solid var(--line);
 }
+.visit-counter{
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  color: var(--text-soft);
+}
 
 [hidden]{ display: none !important; }
 
@@ -627,6 +633,7 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
 
     <footer class="site-footer">
       <p>Feito para uso rápido e educativo. Câmbio e CEP consultam serviços públicos em tempo real; os demais cálculos rodam localmente no seu navegador.</p>
+      <p id="visit-counter" class="visit-counter">🔢 —</p>
     </footer>
   </div>
 </div>
@@ -663,6 +670,9 @@ function escapeHtml(s) {
 /* Renders a readout panel from an array of {label, value, big, muted, note, warn} */
 function readoutHTML(rows, note, warn) {
   if (!rows || rows.length === 0) {
+    if (note) {
+      return '<div class="readout empty' + (warn ? " warn-text" : "") + '">' + note + '</div>';
+    }
     return '<div class="readout empty">Preencha os campos para ver o resultado.</div>';
   }
   var html = '<div class="readout">';
@@ -2804,18 +2814,35 @@ TOOLS.push({
       var out = $("#pt-out", root);
       if (!cidade) { out.innerHTML = readoutHTML([], "Digite uma cidade.", true); return; }
       out.innerHTML = '<div class="readout empty">Buscando localização…</div>';
-      fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&format=json&name=" + encodeURIComponent(cidade))
-        .then(function (r) { return r.json(); })
-        .then(function (geo) {
-          if (!geo.results || !geo.results.length) throw new Error("Cidade não encontrada");
-          var loc = geo.results[0];
-          return fetch("https://api.open-meteo.com/v1/forecast?latitude=" + loc.latitude + "&longitude=" + loc.longitude +
+
+      function tentarGeocode(comIdioma) {
+        var url = "https://geocoding-api.open-meteo.com/v1/search?count=1&format=json" + (comIdioma ? "&language=pt" : "") + "&name=" + encodeURIComponent(cidade);
+        return fetch(url).then(function (r) {
+          if (!r.ok) throw new Error("geocodificação falhou (HTTP " + r.status + ")");
+          return r.json();
+        }).then(function (geo) {
+          if (geo && geo.results && geo.results.length) return geo.results[0];
+          if (comIdioma) return tentarGeocode(false); // tenta de novo sem filtro de idioma
+          throw new Error("cidade não encontrada");
+        });
+      }
+
+      tentarGeocode(true)
+        .then(function (loc) {
+          var url = "https://api.open-meteo.com/v1/forecast?latitude=" + loc.latitude + "&longitude=" + loc.longitude +
             "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m" +
-            "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=5")
-            .then(function (r) { return r.json(); }).then(function (fc) { return { loc: loc, fc: fc }; });
+            "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=5";
+          return fetch(url).then(function (r) {
+            if (!r.ok) throw new Error("previsão falhou (HTTP " + r.status + ")");
+            return r.json();
+          }).then(function (fc) {
+            if (fc.error) throw new Error(fc.reason || "erro na API de previsão");
+            return { loc: loc, fc: fc };
+          });
         })
         .then(function (res) {
           var c = res.fc.current, d = res.fc.daily, loc = res.loc;
+          if (!c || !d) throw new Error("resposta incompleta da API");
           var rows = [
             { label: loc.name + (loc.admin1 ? ", " + loc.admin1 : ""), value: fmtNum(c.temperature_2m, 0) + "°C", big: true },
             { label: "Sensação térmica", value: fmtNum(c.apparent_temperature, 0) + "°C" },
@@ -2829,7 +2856,9 @@ TOOLS.push({
             }).join("") + "</tbody></table></div>";
           out.innerHTML = readoutHTML(rows, "Fonte: Open-Meteo.") + tabela;
         })
-        .catch(function (err) { out.innerHTML = readoutHTML([], "Não foi possível buscar a previsão (" + err.message + ").", true); });
+        .catch(function (err) {
+          out.innerHTML = readoutHTML([], "Não foi possível buscar a previsão (" + err.message + "). Verifique sua conexão ou tente o nome da cidade sem acentos.", true);
+        });
     });
   }
 });
@@ -2963,6 +2992,29 @@ function setupSidebarToggle() {
 }
 
 /* =========================================================
+   Contador de acessos (global, via CountAPI — serviço gratuito
+   sem cadastro). Cada carregamento da página soma +1 ao total
+   compartilhado por todos que abrirem este arquivo.
+   ========================================================= */
+var VISIT_COUNTER_KEY = "central_de_calculos_pt_br_2026";
+function setupVisitCounter() {
+  var el = $("#visit-counter");
+  if (!el) return;
+  fetch("https://countapi.mileshilliard.com/api/v1/hit/" + VISIT_COUNTER_KEY)
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      if (typeof data.value === "undefined") throw new Error("resposta inesperada");
+      el.textContent = "🔢 " + fmtNum(data.value, 0) + " acessos ao site";
+    })
+    .catch(function () {
+      el.textContent = "🔢 Contador de acessos indisponível no momento";
+    });
+}
+
+/* =========================================================
    Init
    ========================================================= */
 document.addEventListener("DOMContentLoaded", function () {
@@ -2970,6 +3022,7 @@ document.addEventListener("DOMContentLoaded", function () {
   buildSections();
   setupSearch();
   setupSidebarToggle();
+  setupVisitCounter();
 });
 
 </script>
