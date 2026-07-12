@@ -606,7 +606,7 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
       <span class="logo-text">Central de<br>Cálculos</span>
     </div>
     <nav class="cat-nav" id="cat-nav" aria-label="Categorias"></nav>
-    <p class="sidebar-note">49 ferramentas · roda 100% no seu navegador</p>
+    <p class="sidebar-note">50 ferramentas · roda 100% no seu navegador</p>
   </aside>
 
   <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Abrir menu de categorias" aria-expanded="false">
@@ -624,7 +624,7 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
     </header>
 
     <section class="hero">
-      <p class="hero-eyebrow">13 categorias · 49 ferramentas</p>
+      <p class="hero-eyebrow">13 categorias · 50 ferramentas</p>
       <h1>Toda conta que você precisa,<br>num só painel.</h1>
       <p class="hero-lede">Saúde, dinheiro, casa, viagem, cozinha e tecnologia — escolha uma ferramenta abaixo e veja o resultado aparecer em tempo real no visor.</p>
     </section>
@@ -2789,6 +2789,83 @@ TOOLS.push({
       }
       map.invalidateSize();
     }, 300);
+  }
+});
+
+TOOLS.push({
+  id: "localizar-coordenadas", cat: "mapa", icon: "🧭", title: "Localizar por Coordenadas",
+  subtitle: "Digite latitude e longitude e veja o endereço e o mapa",
+  mount: function (root) {
+    root.innerHTML =
+      '<div class="field-row cols-2">' +
+      '<div class="field"><label>Latitude</label><input type="number" id="lc-lat" placeholder="-8.0631" step="0.000001"></div>' +
+      '<div class="field"><label>Longitude</label><input type="number" id="lc-lon" placeholder="-34.8711" step="0.000001"></div>' +
+      '</div>' +
+      '<div class="btn-row">' +
+      '<button class="btn primary" id="lc-buscar">Localizar</button>' +
+      '<button class="btn" id="lc-minha-loc" type="button">📍 Usar minha localização atual</button>' +
+      '</div>' +
+      '<div id="lc-out"></div><div id="lc-map" class="map-box" hidden></div>';
+
+    var map = null, marker = null;
+    var mapEl = $("#lc-map", root);
+
+    function localizar(lat, lon) {
+      var out = $("#lc-out", root);
+      if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        out.innerHTML = readoutHTML([], "Latitude deve estar entre -90 e 90, e longitude entre -180 e 180.", true);
+        return;
+      }
+      out.innerHTML = '<div class="readout empty">Buscando endereço…</div>';
+      fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lon + "&zoom=18&addressdetails=1")
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (d) {
+          if (d.error) throw new Error(d.error);
+          var addr = d.address || {};
+          var linha1 = [addr.road, addr.house_number].filter(Boolean).join(", ") || d.display_name.split(",")[0];
+          var cidade = addr.city || addr.town || addr.village || addr.municipality || "—";
+          out.innerHTML = readoutHTML([
+            { label: "Endereço", value: linha1, big: true },
+            { label: "Bairro", value: addr.suburb || addr.neighbourhood || "—" },
+            { label: "Cidade / UF", value: cidade + (addr.state ? " / " + (addr.state_code || addr.state) : "") },
+            { label: "País", value: addr.country || "—", muted: true }
+          ], "Fonte: OpenStreetMap (Nominatim).");
+
+          mapEl.hidden = false;
+          if (!map) {
+            map = L.map(mapEl).setView([lat, lon], 16);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap", maxZoom: 19 }).addTo(map);
+          } else {
+            map.setView([lat, lon], 16);
+          }
+          if (marker) map.removeLayer(marker);
+          marker = L.marker([lat, lon]).addTo(map).bindPopup(linha1).openPopup();
+          setTimeout(function () { map.invalidateSize(); }, 60);
+        })
+        .catch(function (err) {
+          out.innerHTML = readoutHTML([], "Não foi possível localizar (" + err.message + ").", true);
+        });
+    }
+
+    $("#lc-buscar", root).addEventListener("click", function () {
+      localizar(toNum($("#lc-lat", root).value), toNum($("#lc-lon", root).value));
+    });
+
+    $("#lc-minha-loc", root).addEventListener("click", function () {
+      var out = $("#lc-out", root);
+      if (!navigator.geolocation) { out.innerHTML = readoutHTML([], "Geolocalização não é suportada neste navegador.", true); return; }
+      out.innerHTML = '<div class="readout empty">Obtendo sua localização…</div>';
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        $("#lc-lat", root).value = pos.coords.latitude.toFixed(6);
+        $("#lc-lon", root).value = pos.coords.longitude.toFixed(6);
+        localizar(pos.coords.latitude, pos.coords.longitude);
+      }, function () {
+        out.innerHTML = readoutHTML([], "Não foi possível obter sua localização (permissão negada ou indisponível).", true);
+      }, { timeout: 8000 });
+    });
   }
 });
 
