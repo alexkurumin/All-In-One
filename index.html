@@ -285,6 +285,21 @@ h1,h2,h3{ font-family: var(--font-display); margin: 0; }
 }
 .tool-card.open{ border-color: hsl(var(--hue) 70% 45%); }
 
+.tool-card.external .tool-card-head{
+  text-decoration: none;
+  cursor: pointer;
+}
+.tool-card.external:hover{ border-color: hsl(var(--hue) 70% 45%); }
+.external-tag{
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: hsl(var(--hue) 75% 65%);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.external-icon{ color: hsl(var(--hue) 75% 65%); }
+
 .tool-card-head{
   width: 100%;
   background: none;
@@ -606,7 +621,7 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
       <span class="logo-text">Central de<br>Cálculos</span>
     </div>
     <nav class="cat-nav" id="cat-nav" aria-label="Categorias"></nav>
-    <p class="sidebar-note">50 ferramentas · roda 100% no seu navegador</p>
+    <p class="sidebar-note">63 ferramentas · roda 100% no seu navegador</p>
   </aside>
 
   <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Abrir menu de categorias" aria-expanded="false">
@@ -624,7 +639,7 @@ table.data-table thead th{ color: var(--text-muted); font-weight: 600; backgroun
     </header>
 
     <section class="hero">
-      <p class="hero-eyebrow">13 categorias · 50 ferramentas</p>
+      <p class="hero-eyebrow">13 categorias · 63 ferramentas</p>
       <h1>Toda conta que você precisa,<br>num só painel.</h1>
       <p class="hero-lede">Saúde, dinheiro, casa, viagem, cozinha e tecnologia — escolha uma ferramenta abaixo e veja o resultado aparecer em tempo real no visor.</p>
     </section>
@@ -2974,6 +2989,27 @@ TOOLS.push({
 });
 
 /* =========================================================
+   Aplicativos externos — projetos independentes de alexkurumin,
+   linkados (abrem em nova aba) dentro dos grupos temáticos.
+   ========================================================= */
+TOOLS.push({ id: "ext-cli-linux", cat: "tecnologia", icon: "💻", title: "Guia de Comandos Linux (CLI)", subtitle: "30 comandos essenciais de terminal, explicados um a um", url: "https://alexkurumin.github.io/repocristao/clicommands.html" });
+TOOLS.push({ id: "ext-busca-ti", cat: "tecnologia", icon: "🔎", title: "Busca Especializada em TI", subtitle: "Terminal de pesquisa focado só em tecnologia da informação", url: "https://alexkurumin.github.io/codereplit/search_tec_only_1.html" });
+TOOLS.push({ id: "ext-qr-studio", cat: "tecnologia", icon: "📱", title: "QR Studio", subtitle: "Gera e lê QR Codes, 100% local no seu dispositivo", url: "https://alexkurumin.github.io/codereplit/qr-studio.html" });
+TOOLS.push({ id: "ext-gerador-senhas", cat: "tecnologia", icon: "🔐", title: "Gerador de Senhas Seguras", subtitle: "Senhas fortes e aleatórias, geradas na hora", url: "https://alexkurumin.github.io/codereplit/gerador_de_senhas_high.html" });
+TOOLS.push({ id: "ext-neoncv", cat: "tecnologia", icon: "📋", title: "NeonCV — Gerador de Currículo", subtitle: "Monte e exporte seu currículo em PDF", url: "https://alexkurumin.github.io/codereplit/curriculo.html" });
+TOOLS.push({ id: "ext-pomodoro", cat: "tecnologia", icon: "⏱", title: "CyberFocus — Pomodoro Gamificado", subtitle: "Técnica Pomodoro com XP, níveis e lista de tarefas", url: "https://alexkurumin.github.io/codereplit/pomodoro.html" });
+TOOLS.push({ id: "ext-bloco-notas-vault", cat: "tecnologia", icon: "📓", title: "Bloco de Notas Criptografado", subtitle: "Vault de anotações protegidas por senha", url: "https://alexkurumin.github.io/codereplit/bloco_notas_criptografado_vault.html" });
+TOOLS.push({ id: "ext-gerenciador-tarefas", cat: "tecnologia", icon: "✅", title: "Gerenciador de Tarefas Minimalista", subtitle: "Organize afazeres num painel limpo e direto", url: "https://alexkurumin.github.io/codereplit/gerenciador_tarefas_minimalista_high.html" });
+TOOLS.push({ id: "ext-dashboard-sistema", cat: "tecnologia", icon: "📊", title: "Dashboard de Sistema High-Tech", subtitle: "Painel visual de métricas e indicadores", url: "https://alexkurumin.github.io/codereplit/dashboard_sistema_high_tech.html" });
+
+TOOLS.push({ id: "ext-neonword", cat: "educacao", icon: "🔤", title: "NeonWord — Wordle em Português", subtitle: "Adivinhe a palavra de 5 letras em 6 tentativas", url: "https://alexkurumin.github.io/codereplit/advinha.html" });
+
+TOOLS.push({ id: "ext-cybervault", cat: "financas", icon: "💰", title: "CyberVault — Controle Financeiro", subtitle: "Receitas, despesas e metas de gastos, com importação de CSV", url: "https://alexkurumin.github.io/codereplit/finan%C3%A7as.html" });
+TOOLS.push({ id: "ext-calc-financeira-hightech", cat: "financas", icon: "🧮", title: "Calculadora Financeira High-Tech", subtitle: "Simulações financeiras com visual futurista", url: "https://alexkurumin.github.io/codereplit/calculadora_financeira_high_tech.html" });
+
+TOOLS.push({ id: "ext-chroma-paleta", cat: "design", icon: "🎨", title: "Chroma — Gerador de Paleta de Cores", subtitle: "Paletas harmônicas para seus projetos de design", url: "https://alexkurumin.github.io/codereplit/gerador-paleta-cores.html" });
+
+/* =========================================================
    Rendering engine
    ========================================================= */
 function buildSidebar() {
@@ -2990,6 +3026,14 @@ function buildSections() {
   container.innerHTML = CATEGORIES.map(function (cat, idx) {
     var tools = TOOLS.filter(function (t) { return t.cat === cat.id; });
     var cards = tools.map(function (t) {
+      if (t.url) {
+        return '<div class="tool-card external" data-tool="' + t.id + '" style="--hue:' + cat.hue + '">' +
+          '<a class="tool-card-head" href="' + t.url + '" target="_blank" rel="noopener">' +
+          '<span class="tool-icon">' + t.icon + '</span>' +
+          '<span class="tool-card-title"><strong>' + escapeHtml(t.title) + '</strong><small>' + escapeHtml(t.subtitle) + '</small><span class="external-tag">Aplicativo externo · abre em nova aba</span></span>' +
+          '<svg class="tool-chevron external-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7M17 7H8M17 7V16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</a></div>';
+      }
       return '<div class="tool-card" data-tool="' + t.id + '" style="--hue:' + cat.hue + '">' +
         '<button class="tool-card-head" aria-expanded="false">' +
         '<span class="tool-icon">' + t.icon + '</span>' +
@@ -3009,6 +3053,7 @@ function buildSections() {
   // Accordion behaviour with lazy mount
   var mounted = {};
   $all(".tool-card").forEach(function (card) {
+    if (card.classList.contains("external")) return; // links out directly, no accordion
     var head = $(".tool-card-head", card);
     head.addEventListener("click", function () {
       var toolId = card.dataset.tool;
